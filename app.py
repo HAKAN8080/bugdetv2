@@ -155,12 +155,32 @@ if 'lessons_learned' not in st.session_state:
         lessons_data[str(month)] = [0] * len(main_groups)
     st.session_state.lessons_learned = pd.DataFrame(lessons_data)
 
+# Geçici düzenleme dataları (kaydedilmemiş değişiklikler)
+if 'monthly_targets_temp' not in st.session_state:
+    st.session_state.monthly_targets_temp = st.session_state.monthly_targets.copy()
+
+if 'maingroup_targets_temp' not in st.session_state:
+    st.session_state.maingroup_targets_temp = st.session_state.maingroup_targets.copy()
+
+if 'lessons_learned_temp' not in st.session_state:
+    st.session_state.lessons_learned_temp = st.session_state.lessons_learned.copy()
+
 # ANA SEKMELER
 main_tabs = st.tabs(["⚙️ Parametre Ayarları", "📊 Tahmin Sonuçları", "📋 Detay Veriler"])
 
 # ==================== PARAMETRE AYARLARI TAB ====================
 with main_tabs[0]:
     st.markdown("## ⚙️ Tahmin Parametrelerini Ayarlayın")
+    
+    # Genel kaydedilmemiş değişiklik kontrolü
+    has_unsaved_monthly = not st.session_state.monthly_targets.equals(st.session_state.monthly_targets_temp)
+    has_unsaved_maingroup = not st.session_state.maingroup_targets.equals(st.session_state.maingroup_targets_temp)
+    has_unsaved_lessons = not st.session_state.lessons_learned.equals(st.session_state.lessons_learned_temp)
+    
+    total_unsaved = sum([has_unsaved_monthly, has_unsaved_maingroup, has_unsaved_lessons])
+    
+    if total_unsaved > 0:
+        st.error(f"⚠️ **{total_unsaved} tabloda kaydedilmemiş değişiklikler var!** Lütfen değişikliklerinizi kaydedin veya iptal edin.")
     
     param_tabs = st.tabs(["📅 Ay Bazında Hedefler", "🏪 Ana Grup Hedefleri", "📚 Alınan Dersler"])
     
@@ -169,11 +189,17 @@ with main_tabs[0]:
         st.markdown("### 📅 Ay Bazında Büyüme Hedefleri")
         st.caption("Her ay için büyüme hedefini ayarlayın. Bu hedef tüm ana gruplar için uygulanır.")
         
+        # Değişiklik kontrolü
+        has_changes_monthly = not st.session_state.monthly_targets.equals(st.session_state.monthly_targets_temp)
+        
+        if has_changes_monthly:
+            st.warning("⚠️ Kaydedilmemiş değişiklikler var!")
+        
         col1, col2 = st.columns([3, 1])
         
         with col1:
             edited_monthly = st.data_editor(
-                st.session_state.monthly_targets,
+                st.session_state.monthly_targets_temp,
                 use_container_width=True,
                 hide_index=True,
                 column_config={
@@ -189,24 +215,39 @@ with main_tabs[0]:
                 },
                 key='monthly_editor'
             )
-            st.session_state.monthly_targets = edited_monthly
+            st.session_state.monthly_targets_temp = edited_monthly
+            
+            # Kaydet/İptal butonları
+            col_save, col_cancel = st.columns(2)
+            
+            with col_save:
+                if st.button("💾 Kaydet", key='save_monthly', type='primary', disabled=not has_changes_monthly, use_container_width=True):
+                    st.session_state.monthly_targets = st.session_state.monthly_targets_temp.copy()
+                    st.success("✅ Ay bazında hedefler kaydedildi!")
+                    st.rerun()
+            
+            with col_cancel:
+                if st.button("↺ İptal Et", key='cancel_monthly', disabled=not has_changes_monthly, use_container_width=True):
+                    st.session_state.monthly_targets_temp = st.session_state.monthly_targets.copy()
+                    st.info("🔄 Değişiklikler iptal edildi")
+                    st.rerun()
         
         with col2:
             st.markdown("#### 🔧 Hızlı İşlemler")
             
             if st.button("↺ Varsayılana Dön", key='reset_monthly'):
-                st.session_state.monthly_targets['Hedef (%)'] = general_growth * 100
+                st.session_state.monthly_targets_temp['Hedef (%)'] = general_growth * 100
                 st.rerun()
             
             if st.button("⊕ Tümünü +5%", key='inc_monthly'):
-                st.session_state.monthly_targets['Hedef (%)'] = st.session_state.monthly_targets['Hedef (%)'] + 5
+                st.session_state.monthly_targets_temp['Hedef (%)'] = st.session_state.monthly_targets_temp['Hedef (%)'] + 5
                 st.rerun()
             
             if st.button("⊖ Tümünü -5%", key='dec_monthly'):
-                st.session_state.monthly_targets['Hedef (%)'] = st.session_state.monthly_targets['Hedef (%)'] - 5
+                st.session_state.monthly_targets_temp['Hedef (%)'] = st.session_state.monthly_targets_temp['Hedef (%)'] - 5
                 st.rerun()
             
-            avg_monthly = st.session_state.monthly_targets['Hedef (%)'].mean()
+            avg_monthly = st.session_state.monthly_targets_temp['Hedef (%)'].mean()
             st.metric("Ortalama", f"%{avg_monthly:.1f}")
     
     # --- ANA GRUP HEDEFLERİ ---
@@ -214,11 +255,17 @@ with main_tabs[0]:
         st.markdown("### 🏪 Ana Grup Bazında Büyüme Hedefleri")
         st.caption("Her ana grup için büyüme hedefini ayarlayın. Bu hedef tüm aylar için uygulanır.")
         
+        # Değişiklik kontrolü
+        has_changes_maingroup = not st.session_state.maingroup_targets.equals(st.session_state.maingroup_targets_temp)
+        
+        if has_changes_maingroup:
+            st.warning("⚠️ Kaydedilmemiş değişiklikler var!")
+        
         col1, col2 = st.columns([3, 1])
         
         with col1:
             edited_maingroup = st.data_editor(
-                st.session_state.maingroup_targets,
+                st.session_state.maingroup_targets_temp,
                 use_container_width=True,
                 hide_index=True,
                 height=400,
@@ -234,30 +281,51 @@ with main_tabs[0]:
                 },
                 key='maingroup_editor'
             )
-            st.session_state.maingroup_targets = edited_maingroup
+            st.session_state.maingroup_targets_temp = edited_maingroup
+            
+            # Kaydet/İptal butonları
+            col_save, col_cancel = st.columns(2)
+            
+            with col_save:
+                if st.button("💾 Kaydet", key='save_maingroup', type='primary', disabled=not has_changes_maingroup, use_container_width=True):
+                    st.session_state.maingroup_targets = st.session_state.maingroup_targets_temp.copy()
+                    st.success("✅ Ana grup hedefleri kaydedildi!")
+                    st.rerun()
+            
+            with col_cancel:
+                if st.button("↺ İptal Et", key='cancel_maingroup', disabled=not has_changes_maingroup, use_container_width=True):
+                    st.session_state.maingroup_targets_temp = st.session_state.maingroup_targets.copy()
+                    st.info("🔄 Değişiklikler iptal edildi")
+                    st.rerun()
         
         with col2:
             st.markdown("#### 🔧 Hızlı İşlemler")
             
             if st.button("↺ Varsayılana Dön", key='reset_maingroup'):
-                st.session_state.maingroup_targets['Hedef (%)'] = general_growth * 100
+                st.session_state.maingroup_targets_temp['Hedef (%)'] = general_growth * 100
                 st.rerun()
             
             if st.button("⊕ Tümünü +5%", key='inc_maingroup'):
-                st.session_state.maingroup_targets['Hedef (%)'] = st.session_state.maingroup_targets['Hedef (%)'] + 5
+                st.session_state.maingroup_targets_temp['Hedef (%)'] = st.session_state.maingroup_targets_temp['Hedef (%)'] + 5
                 st.rerun()
             
             if st.button("⊖ Tümünü -5%", key='dec_maingroup'):
-                st.session_state.maingroup_targets['Hedef (%)'] = st.session_state.maingroup_targets['Hedef (%)'] - 5
+                st.session_state.maingroup_targets_temp['Hedef (%)'] = st.session_state.maingroup_targets_temp['Hedef (%)'] - 5
                 st.rerun()
             
-            avg_maingroup = st.session_state.maingroup_targets['Hedef (%)'].mean()
+            avg_maingroup = st.session_state.maingroup_targets_temp['Hedef (%)'].mean()
             st.metric("Ortalama", f"%{avg_maingroup:.1f}")
     
     # --- ALINAN DERSLER ---
     with param_tabs[2]:
         st.markdown("### 📚 Alınan Dersler (Tecrübe Matrisi)")
         st.caption("Geçmiş deneyimlerinizi -10 ile +10 arası puan vererek girin. Her puan ~%2 etki yapar (max ±%20).")
+        
+        # Değişiklik kontrolü
+        has_changes_lessons = not st.session_state.lessons_learned.equals(st.session_state.lessons_learned_temp)
+        
+        if has_changes_lessons:
+            st.warning("⚠️ Kaydedilmemiş değişiklikler var!")
         
         col1, col2 = st.columns([4, 1])
         
@@ -281,24 +349,39 @@ with main_tabs[0]:
                 )
             
             edited_lessons = st.data_editor(
-                st.session_state.lessons_learned,
+                st.session_state.lessons_learned_temp,
                 use_container_width=True,
                 hide_index=True,
                 height=400,
                 column_config=column_config,
                 key='lessons_editor'
             )
-            st.session_state.lessons_learned = edited_lessons
+            st.session_state.lessons_learned_temp = edited_lessons
+            
+            # Kaydet/İptal butonları
+            col_save, col_cancel = st.columns(2)
+            
+            with col_save:
+                if st.button("💾 Kaydet", key='save_lessons', type='primary', disabled=not has_changes_lessons, use_container_width=True):
+                    st.session_state.lessons_learned = st.session_state.lessons_learned_temp.copy()
+                    st.success("✅ Alınan dersler kaydedildi!")
+                    st.rerun()
+            
+            with col_cancel:
+                if st.button("↺ İptal Et", key='cancel_lessons', disabled=not has_changes_lessons, use_container_width=True):
+                    st.session_state.lessons_learned_temp = st.session_state.lessons_learned.copy()
+                    st.info("🔄 Değişiklikler iptal edildi")
+                    st.rerun()
         
         with col2:
             st.markdown("#### 🔧 Hızlı İşlemler")
             
             if st.button("↺ Tümünü Sıfırla", key='reset_lessons'):
                 for month in range(1, 13):
-                    st.session_state.lessons_learned[str(month)] = 0
+                    st.session_state.lessons_learned_temp[str(month)] = 0
                 st.rerun()
             
-            # İstatistikler
+            # İstatistikler - kaydedilmiş veriden
             total_adjustments = 0
             for month in range(1, 13):
                 total_adjustments += st.session_state.lessons_learned[str(month)].abs().sum()
@@ -333,7 +416,17 @@ with main_tabs[0]:
             st.caption("Normal seyir, özel bir durum olmadı")
 
 # ==================== TAHMİN HESAPLAMA ====================
-# Parametreleri hazırla
+# Kaydedilmemiş değişiklik kontrolü
+has_unsaved_changes = (
+    not st.session_state.monthly_targets.equals(st.session_state.monthly_targets_temp) or
+    not st.session_state.maingroup_targets.equals(st.session_state.maingroup_targets_temp) or
+    not st.session_state.lessons_learned.equals(st.session_state.lessons_learned_temp)
+)
+
+if has_unsaved_changes:
+    st.warning("⚠️ **Parametrelerde kaydedilmemiş değişiklikler var!** Tahmin kaydedilmiş parametreler ile yapılacak. Yeni değişiklikleri görmek için lütfen kaydedin.")
+
+# Parametreleri hazırla (KAYDEDİLMİŞ verilerden)
 monthly_growth_targets = {}
 for _, row in st.session_state.monthly_targets.iterrows():
     monthly_growth_targets[int(row['Ay'])] = row['Hedef (%)'] / 100
@@ -342,7 +435,7 @@ maingroup_growth_targets = {}
 for _, row in st.session_state.maingroup_targets.iterrows():
     maingroup_growth_targets[row['Ana Grup']] = row['Hedef (%)'] / 100
 
-# Alınan dersleri dict formatına çevir
+# Alınan dersleri dict formatına çevir (KAYDEDİLMİŞ veriden)
 lessons_learned_dict = {}
 for _, row in st.session_state.lessons_learned.iterrows():
     main_group = row['Ana Grup']
