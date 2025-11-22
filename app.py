@@ -346,7 +346,6 @@ with main_tabs[0]:
                 full_data = forecaster.get_full_data_with_forecast(
                     growth_param=general_growth,
                     margin_improvement=margin_improvement,
-                    stock_ratio_target=None,  # Artık kullanmıyoruz
                     stock_change_pct=stock_change_pct,
                     monthly_growth_targets=monthly_growth_targets,
                     maingroup_growth_targets=maingroup_growth_targets,
