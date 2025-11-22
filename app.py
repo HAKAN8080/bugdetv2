@@ -116,6 +116,16 @@ if 'lessons_learned' not in st.session_state:
         lessons_data[str(month)] = [0] * len(main_groups)
     st.session_state.lessons_learned = pd.DataFrame(lessons_data)
 
+# Refresh counter - force rerun için
+if 'refresh_counter' not in st.session_state:
+    st.session_state.refresh_counter = 0
+
+if 'lessons_learned' not in st.session_state:
+    lessons_data = {'Ana Grup': main_groups}
+    for month in range(1, 13):
+        lessons_data[str(month)] = [0] * len(main_groups)
+    st.session_state.lessons_learned = pd.DataFrame(lessons_data)
+
 # Hesaplanmış tahmin sonuçları
 if 'forecast_result' not in st.session_state:
     st.session_state.forecast_result = None
@@ -142,7 +152,6 @@ with main_tabs[0]:
                 st.session_state.monthly_targets,
                 use_container_width=True,
                 hide_index=True,
-                disabled=False,
                 column_config={
                     'Ay': st.column_config.NumberColumn('Ay', disabled=True),
                     'Ay Adı': st.column_config.TextColumn('Ay Adı', disabled=True),
@@ -156,6 +165,7 @@ with main_tabs[0]:
                 },
                 key='monthly_editor'
             )
+            # Session state'i güncelle (rerun YOK - gereksiz)
             st.session_state.monthly_targets = edited_monthly
         
         with col2:
@@ -173,12 +183,12 @@ with main_tabs[0]:
                 st.session_state.monthly_targets['Hedef (%)'] = st.session_state.monthly_targets['Hedef (%)'] - 5
                 st.rerun()
             
-            # Canlı istatistikler
-            avg_monthly = st.session_state.monthly_targets['Hedef (%)'].mean()
+            # Canlı istatistikler - DÖNEN DEĞERİ kullan
+            avg_monthly = edited_monthly['Hedef (%)'].mean()
             st.metric("📊 Ortalama", f"%{avg_monthly:.1f}")
             
-            min_monthly = st.session_state.monthly_targets['Hedef (%)'].min()
-            max_monthly = st.session_state.monthly_targets['Hedef (%)'].max()
+            min_monthly = edited_monthly['Hedef (%)'].min()
+            max_monthly = edited_monthly['Hedef (%)'].max()
             st.caption(f"Min: %{min_monthly:.1f} | Max: %{max_monthly:.1f}")
     
     # --- ANA GRUP HEDEFLERİ ---
@@ -193,7 +203,6 @@ with main_tabs[0]:
                 st.session_state.maingroup_targets,
                 use_container_width=True,
                 hide_index=True,
-                disabled=False,
                 height=400,
                 column_config={
                     'Ana Grup': st.column_config.TextColumn('Ana Grup', disabled=True),
@@ -224,12 +233,12 @@ with main_tabs[0]:
                 st.session_state.maingroup_targets['Hedef (%)'] = st.session_state.maingroup_targets['Hedef (%)'] - 5
                 st.rerun()
             
-            # Canlı istatistikler
-            avg_maingroup = st.session_state.maingroup_targets['Hedef (%)'].mean()
+            # Canlı istatistikler - DÖNEN DEĞERİ kullan
+            avg_maingroup = edited_maingroup['Hedef (%)'].mean()
             st.metric("📊 Ortalama", f"%{avg_maingroup:.1f}")
             
-            min_maingroup = st.session_state.maingroup_targets['Hedef (%)'].min()
-            max_maingroup = st.session_state.maingroup_targets['Hedef (%)'].max()
+            min_maingroup = edited_maingroup['Hedef (%)'].min()
+            max_maingroup = edited_maingroup['Hedef (%)'].max()
             st.caption(f"Min: %{min_maingroup:.1f} | Max: %{max_maingroup:.1f}")
     
     # --- ALINAN DERSLER ---
@@ -262,7 +271,6 @@ with main_tabs[0]:
                 st.session_state.lessons_learned,
                 use_container_width=True,
                 hide_index=True,
-                disabled=False,
                 height=400,
                 column_config=column_config,
                 key='lessons_editor'
@@ -277,18 +285,18 @@ with main_tabs[0]:
                     st.session_state.lessons_learned[str(month)] = 0
                 st.rerun()
             
-            # Canlı istatistikler
+            # Canlı istatistikler - DÖNEN DEĞERİ kullan
             total_adjustments = 0
             for month in range(1, 13):
-                total_adjustments += st.session_state.lessons_learned[str(month)].abs().sum()
+                total_adjustments += edited_lessons[str(month)].abs().sum()
             
             st.metric("📊 Toplam Düzeltme", f"{total_adjustments:.0f}")
             
             positive_count = 0
             negative_count = 0
             for month in range(1, 13):
-                positive_count += (st.session_state.lessons_learned[str(month)] > 0).sum()
-                negative_count += (st.session_state.lessons_learned[str(month)] < 0).sum()
+                positive_count += (edited_lessons[str(month)] > 0).sum()
+                negative_count += (edited_lessons[str(month)] < 0).sum()
             
             st.metric("Pozitif (+)", f"{positive_count}")
             st.metric("Negatif (-)", f"{negative_count}")
