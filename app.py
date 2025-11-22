@@ -243,7 +243,7 @@ with main_tabs[0]:
     # --- ALINAN DERSLER ---
     with param_tabs[2]:
         st.markdown("### 📚 Alınan Dersler (Tecrübe Matrisi)")
-        st.caption("Geçmiş deneyimlerinizi -10 ile +10 arası puan vererek girin. Her puan ~%2 etki yapar (max ±%20).")
+        st.caption("Geçmiş deneyimlerinizi -10 ile +10 arası puan vererek girin. Her puan ~%0.5 etki yapar (max ±%5).")
         
         col1, col2 = st.columns([4, 1])
         
@@ -307,11 +307,11 @@ with main_tabs[0]:
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            st.success("**+5 puan** → ~%10 artış")
+            st.success("**+5 puan** → ~%2.5 artış")
             st.caption("Örnek: Ocak/Çaydanlık'ta stok yetersizdi, talep karşılanamadı")
         
         with col2:
-            st.error("**-3 puan** → ~%6 azalış")
+            st.error("**-3 puan** → ~%1.5 azalış")
             st.caption("Örnek: Şubat/Kozmetik'te çok indirimle satıldı, marj düştü")
         
         with col3:
