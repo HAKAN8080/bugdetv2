@@ -165,8 +165,7 @@ with main_tabs[0]:
                 },
                 key='monthly_editor'
             )
-            # Session state'i güncelle (rerun YOK - gereksiz)
-            st.session_state.monthly_targets = edited_monthly
+            # SADECE oku, yazma - focus kaybını önler
         
         with col2:
             st.markdown("#### 🔧 Hızlı İşlemler")
@@ -216,7 +215,7 @@ with main_tabs[0]:
                 },
                 key='maingroup_editor'
             )
-            st.session_state.maingroup_targets = edited_maingroup
+            # SADECE oku, yazma
         
         with col2:
             st.markdown("#### 🔧 Hızlı İşlemler")
@@ -275,7 +274,7 @@ with main_tabs[0]:
                 column_config=column_config,
                 key='lessons_editor'
             )
-            st.session_state.lessons_learned = edited_lessons
+            # SADECE oku, yazma
         
         with col2:
             st.markdown("#### 🔧 Hızlı İşlemler")
@@ -328,26 +327,31 @@ with main_tabs[0]:
     with col2:
         if st.button("📊 Hesapla ve Sonuçları Göster", type='primary', use_container_width=True, key='calculate_forecast'):
             with st.spinner('Tahmin hesaplanıyor...'):
+                # BURADA session_state'i güncelle - dönen değerlerle
+                st.session_state.monthly_targets = edited_monthly
+                st.session_state.maingroup_targets = edited_maingroup
+                st.session_state.lessons_learned = edited_lessons
+                
                 # Parametreleri hazırla
                 monthly_growth_targets = {}
-                for _, row in st.session_state.monthly_targets.iterrows():
+                for _, row in edited_monthly.iterrows():
                     monthly_growth_targets[int(row['Ay'])] = row['Hedef (%)'] / 100
                 
                 maingroup_growth_targets = {}
-                for _, row in st.session_state.maingroup_targets.iterrows():
+                for _, row in edited_maingroup.iterrows():
                     maingroup_growth_targets[row['Ana Grup']] = row['Hedef (%)'] / 100
                 
                 # Alınan dersleri dict formatına çevir
                 lessons_learned_dict = {}
-                for _, row in st.session_state.lessons_learned.iterrows():
+                for _, row in edited_lessons.iterrows():
                     main_group = row['Ana Grup']
                     for month in range(1, 13):
                         lessons_learned_dict[(main_group, month)] = row[str(month)]
                 
                 # Genel büyüme parametresi - ay ve grup hedeflerinin ortalaması
                 general_growth = (
-                    st.session_state.monthly_targets['Hedef (%)'].mean() +
-                    st.session_state.maingroup_targets['Hedef (%)'].mean()
+                    edited_monthly['Hedef (%)'].mean() +
+                    edited_maingroup['Hedef (%)'].mean()
                 ) / 200  # İki ortalamayı birleştir ve yüzdeye çevir
                 
                 # Tahmin yap
