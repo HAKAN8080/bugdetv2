@@ -65,7 +65,34 @@ class BudgetForecaster:
         self._fill_missing_december_2025()
     
     def _fill_missing_december_2025(self):
-        """2025 Aralık ayı eksik veya sıfırsa tahmin et"""
+        """2025 Kasım ve Aralık ayları eksik veya sıfırsa tahmin et"""
+        
+        # 2025 Kasım kontrol et
+        november_2025 = self.data[(self.data['Year'] == 2025) & (self.data['Month'] == 11)]
+        
+        # Kasım yoksa veya toplamı çok düşükse
+        if len(november_2025) == 0 or november_2025['Sales'].sum() < 1000000:
+            
+            # Ekim 2025 verilerini al
+            october_2025 = self.data[(self.data['Year'] == 2025) & (self.data['Month'] == 10)].copy()
+            
+            if len(october_2025) > 0:
+                # Kasım tahmini: Ekim × 1.08 (hafif artış)
+                november_estimate = october_2025.copy()
+                november_estimate['Month'] = 11
+                november_estimate['Sales'] = november_estimate['Sales'] * 1.08
+                november_estimate['GrossProfit'] = november_estimate['GrossProfit'] * 1.08
+                november_estimate['COGS'] = november_estimate['COGS'] * 1.08
+                november_estimate['Stock'] = november_estimate['Stock'] * 1.03
+                
+                # Mevcut Kasım verisini çıkar (varsa)
+                self.data = self.data[~((self.data['Year'] == 2025) & (self.data['Month'] == 11))]
+                
+                # Yeni tahmini ekle
+                self.data = pd.concat([self.data, november_estimate], ignore_index=True)
+                self.data = self.data.sort_values(['Year', 'Month', 'MainGroup']).reset_index(drop=True)
+                
+                print("📅 2025 Kasım ayı tahmini eklendi (Ekim × 1.08)")
         
         # 2025 Aralık kontrol et
         december_2025 = self.data[(self.data['Year'] == 2025) & (self.data['Month'] == 12)]
@@ -73,7 +100,7 @@ class BudgetForecaster:
         # Aralık yoksa veya toplamı çok düşükse
         if len(december_2025) == 0 or december_2025['Sales'].sum() < 1000000:
             
-            # Kasım 2025 verilerini al
+            # Kasım 2025 verilerini al (yukarıda oluşturduk)
             november_2025 = self.data[(self.data['Year'] == 2025) & (self.data['Month'] == 11)].copy()
             
             if len(november_2025) > 0:
@@ -172,9 +199,9 @@ class BudgetForecaster:
         
         return momentum[['MainGroup', 'MomentumScore']]
     
-    def forecast_2026(self, growth_param=0.1, margin_improvement=0.0, stock_ratio_target=1.0, 
+    def forecast_2026(self, growth_param=0.1, margin_improvement=0.0, stock_change_pct=0.0, 
                      monthly_growth_targets=None, maingroup_growth_targets=None, 
-                     stock_change_pct=None, lessons_learned=None):
+                     lessons_learned=None):
         """
         2026 tahminini yap
         
@@ -182,10 +209,9 @@ class BudgetForecaster:
         -----------
         growth_param: Genel büyüme hedefi (diğer hedefler yoksa kullanılır)
         margin_improvement: Brüt marj iyileşme hedefi (örn: 0.02 = 2 puan)
-        stock_ratio_target: Hedef stok/SMM oranı (örn: 0.8) - stock_change_pct None ise
+        stock_change_pct: Stok tutar değişim yüzdesi (örn: -0.05 = %5 azalış, 0.10 = %10 artış)
         monthly_growth_targets: Dict {month: growth_rate} - Her ay için özel hedef
         maingroup_growth_targets: Dict {maingroup: growth_rate} - Her ana grup için özel hedef
-        stock_change_pct: Stok tutar değişim yüzdesi (örn: -0.05 = %5 azalış)
         lessons_learned: Dict {(maingroup, month): score} - Alınan dersler (-10 ile +10 arası)
         """
         
@@ -254,13 +280,17 @@ class BudgetForecaster:
         forecast['GrossProfit_2026'] = forecast['Sales_2026'] * forecast['GrossMargin%_2026']
         forecast['COGS_2026'] = forecast['Sales_2026'] - forecast['GrossProfit_2026']
         
-        # STOK HESAPLAMA - İKİ YÖNTEM:
-        if stock_change_pct is not None:
-            # Yöntem 1: TUTAR BAZLI DEĞİŞİM
-            forecast['Stock_2026'] = forecast['Stock'] * (1 + stock_change_pct)
-        else:
-            # Yöntem 2: ORAN BAZLI HEDEF
-            forecast['Stock_2026'] = forecast['COGS_2026'] * stock_ratio_target
+        # STOK HESAPLAMA - Her grup kendi 2025 stok/SMM oranını korur
+        # 2025 stok oranını hesapla
+        forecast['Stock_COGS_Ratio_2025'] = np.where(
+            forecast['COGS'] > 0,
+            forecast['Stock'] / forecast['COGS'],
+            0
+        )
+        
+        # 2026 stok = 2025 stok × (1 + değişim %)
+        # Bu sayede her grup kendi stok/SMM oranını korurken, toplam stok hedeflenen oranda değişir
+        forecast['Stock_2026'] = forecast['Stock'] * (1 + stock_change_pct)
         
         # Sonuç datasını hazırla
         result = forecast[['Month', 'MainGroup', 'Sales_2026', 'GrossProfit_2026', 
@@ -278,15 +308,15 @@ class BudgetForecaster:
         
         return result
     
-    def get_full_data_with_forecast(self, growth_param=0.1, margin_improvement=0.0, stock_ratio_target=1.0, 
+    def get_full_data_with_forecast(self, growth_param=0.1, margin_improvement=0.0, stock_change_pct=0.0, 
                                     monthly_growth_targets=None, maingroup_growth_targets=None, 
-                                    stock_change_pct=None, lessons_learned=None):
+                                    lessons_learned=None):
         """2024, 2025 ve 2026 tahminini birleştir"""
         
         forecast_2026 = self.forecast_2026(
-            growth_param, margin_improvement, stock_ratio_target, 
+            growth_param, margin_improvement, stock_change_pct,
             monthly_growth_targets, maingroup_growth_targets, 
-            stock_change_pct, lessons_learned
+            lessons_learned
         )
         
         # 2024-2025 verisini düzenle
