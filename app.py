@@ -907,8 +907,14 @@ with main_tabs[2]:
                 
                 full_comparison = full_comparison[column_order]
                 
-                # CSV'ye çevir - encoding ile Türkçe karakter sorunu çözülür
-                csv_data = full_comparison.to_csv(index=False, encoding='utf-8-sig', sep=';')
+                # BrutMarj sütunlarını yüzde formatından ondalık sayıya çevir (Excel için)
+                for col in ['BrutMarj_2024', 'BrutMarj_2025', 'BrutMarj_2026']:
+                    # 0.42 gibi değerleri 42 yap (Excel'de yüzde formatı uygularız)
+                    full_comparison[col] = full_comparison[col] * 100
+                
+                # CSV'ye çevir - FORMATLAMADAN, ham sayılar
+                # Excel kendi yorumlayacak
+                csv_data = full_comparison.to_csv(index=False, encoding='utf-8-sig', sep=',', decimal='.')
                 
                 st.download_button(
                     label="📥 Toplu CSV İndir (Tüm Aylar ve Gruplar)",
@@ -919,7 +925,7 @@ with main_tabs[2]:
                 )
                 
                 st.success(f"✅ CSV hazır! Toplam {len(full_comparison)} satır veri")
-                st.caption("💡 Excel'de açarken: Veri > Metin/CSV'den > Ayırıcı: Noktalı virgül (;)")
+                st.info("💡 Excel'de açınca sayılar otomatik formatlanacak. BrutMarj sütunlarına yüzde (%) formatı uygulayın.")
 
 # Footer
 st.markdown("---")
