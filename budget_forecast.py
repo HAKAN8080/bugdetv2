@@ -77,13 +77,13 @@ class BudgetForecaster:
             october_2025 = self.data[(self.data['Year'] == 2025) & (self.data['Month'] == 10)].copy()
             
             if len(october_2025) > 0:
-                # Kasım tahmini: Ekim × 1.08 (hafif artış)
+                # Kasım tahmini: Ekim × 1.02 (hafif artış - KONSERVATIF)
                 november_estimate = october_2025.copy()
                 november_estimate['Month'] = 11
-                november_estimate['Sales'] = november_estimate['Sales'] * 1.08
-                november_estimate['GrossProfit'] = november_estimate['GrossProfit'] * 1.08
-                november_estimate['COGS'] = november_estimate['COGS'] * 1.08
-                november_estimate['Stock'] = november_estimate['Stock'] * 1.03
+                november_estimate['Sales'] = november_estimate['Sales'] * 1.02
+                november_estimate['GrossProfit'] = november_estimate['GrossProfit'] * 1.02
+                november_estimate['COGS'] = november_estimate['COGS'] * 1.02
+                november_estimate['Stock'] = november_estimate['Stock'] * 1.01
                 
                 # Mevcut Kasım verisini çıkar (varsa)
                 self.data = self.data[~((self.data['Year'] == 2025) & (self.data['Month'] == 11))]
@@ -92,7 +92,7 @@ class BudgetForecaster:
                 self.data = pd.concat([self.data, november_estimate], ignore_index=True)
                 self.data = self.data.sort_values(['Year', 'Month', 'MainGroup']).reset_index(drop=True)
                 
-                print("📅 2025 Kasım ayı tahmini eklendi (Ekim × 1.08)")
+                print("📅 2025 Kasım ayı tahmini eklendi (Ekim × 1.02)")
         
         # 2025 Aralık kontrol et
         december_2025 = self.data[(self.data['Year'] == 2025) & (self.data['Month'] == 12)]
@@ -104,13 +104,13 @@ class BudgetForecaster:
             november_2025 = self.data[(self.data['Year'] == 2025) & (self.data['Month'] == 11)].copy()
             
             if len(november_2025) > 0:
-                # Aralık tahmini: Kasım × 1.12 (mevsimsellik faktörü)
+                # Aralık tahmini: Kasım × 1.05 (mevsimsellik faktörü - KONSERVATIF)
                 december_estimate = november_2025.copy()
                 december_estimate['Month'] = 12
-                december_estimate['Sales'] = december_estimate['Sales'] * 1.12
-                december_estimate['GrossProfit'] = december_estimate['GrossProfit'] * 1.12
-                december_estimate['COGS'] = december_estimate['COGS'] * 1.12
-                december_estimate['Stock'] = december_estimate['Stock'] * 1.05
+                december_estimate['Sales'] = december_estimate['Sales'] * 1.05
+                december_estimate['GrossProfit'] = december_estimate['GrossProfit'] * 1.05
+                december_estimate['COGS'] = december_estimate['COGS'] * 1.05
+                december_estimate['Stock'] = december_estimate['Stock'] * 1.02
                 
                 # Mevcut Aralık verisini çıkar (varsa)
                 self.data = self.data[~((self.data['Year'] == 2025) & (self.data['Month'] == 12))]
@@ -119,7 +119,7 @@ class BudgetForecaster:
                 self.data = pd.concat([self.data, december_estimate], ignore_index=True)
                 self.data = self.data.sort_values(['Year', 'Month', 'MainGroup']).reset_index(drop=True)
                 
-                print("📅 2025 Aralık ayı tahmini eklendi (Kasım × 1.12)")
+                print("📅 2025 Aralık ayı tahmini eklendi (Kasım × 1.05)")
         
     def calculate_seasonality(self):
         """Her ay için mevsimsellik indeksi hesapla"""
@@ -245,15 +245,15 @@ class BudgetForecaster:
             forecast['MainGroupGrowthTarget'] = growth_param
         
         # ALINAN DERSLER - Skor bazlı ayarlama
-        # Her puan ~%2 etki yapar (±10 puan = ±%20 max etki)
+        # Her puan ~%0.5 etki yapar (±10 puan = ±%5 max etki) - ÇOK KONSERVATIF
         if lessons_learned is not None:
             # (MainGroup, Month) bazında skor al
             forecast['LessonsScore'] = forecast.apply(
                 lambda row: lessons_learned.get((row['MainGroup'], row['Month']), 0), 
                 axis=1
             )
-            # Skoru büyüme oranına çevir: puan × 0.02 (her puan %2)
-            forecast['LessonsAdjustment'] = forecast['LessonsScore'] * 0.02
+            # Skoru büyüme oranına çevir: puan × 0.005 (her puan %0.5 - çok konservatif)
+            forecast['LessonsAdjustment'] = forecast['LessonsScore'] * 0.005
         else:
             forecast['LessonsAdjustment'] = 0
         
@@ -265,12 +265,19 @@ class BudgetForecaster:
         )
         
         # TAHMİN FORMÜLÜ
-        # 2025 değeri × (1 + organik büyüme × 0.3) × (1 + kombine hedef) × mevsimsel düzeltme
+        # 2025'in 11-12. ayları tahmini olduğu için daha konservatif yaklaş
+        # Gerçek veriden gelen aylar (1-10) için normal, tahmini aylar (11-12) için 0.9x çarpan
+        forecast['Month_Confidence'] = forecast['Month'].apply(
+            lambda m: 0.90 if m in [11, 12] else 1.0  # 11-12. aylar %10 daha konservatif
+        )
+        
+        # 2025 değeri × (1 + organik büyüme × 0.3) × (1 + kombine hedef) × mevsimsel düzeltme × ay güveni
         forecast['Sales_2026'] = (
             forecast['Sales'] *
             (1 + organic_growth * 0.3) *  # Organik trend hafif etki
             (1 + forecast['CombinedGrowthTarget']) *  # Ay + Ana Grup + Dersler kombine
-            (0.85 + forecast['SeasonalityIndex'] * 0.15)  # Mevsimsellik hafif etki
+            (0.85 + forecast['SeasonalityIndex'] * 0.15) *  # Mevsimsellik hafif etki
+            forecast['Month_Confidence']  # Tahmini aylara konservatif yaklaşım
         )
         
         # Gross Margin iyileşmesi
