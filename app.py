@@ -74,17 +74,6 @@ main_groups = sorted(forecaster.data['MainGroup'].unique().tolist())
 
 # Sidebar - Genel parametreler
 st.sidebar.markdown("---")
-st.sidebar.subheader("💰 Genel Büyüme Hedefi")
-general_growth = st.sidebar.slider(
-    "Varsayılan Büyüme (%)",
-    min_value=-20.0,
-    max_value=50.0,
-    value=15.0,
-    step=1.0,
-    help="Özel hedef girilmemiş ay/gruplara uygulanır"
-) / 100
-
-st.sidebar.markdown("---")
 st.sidebar.subheader("📈 Karlılık Hedefi")
 margin_improvement = st.sidebar.slider(
     "Brüt Marj İyileşme (puan)",
@@ -97,33 +86,14 @@ margin_improvement = st.sidebar.slider(
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("📦 Stok Hedefi")
-stock_param_type = st.sidebar.radio(
-    "Stok Parametresi",
-    ["Stok/SMM Oranı", "Stok Tutar Değişimi"],
-    index=0,
-    help="Stok hedefini oran veya tutar bazında belirle"
-)
-
-if stock_param_type == "Stok/SMM Oranı":
-    stock_ratio_target = st.sidebar.slider(
-        "Hedef Stok/SMM Oranı",
-        min_value=0.3,
-        max_value=2.0,
-        value=0.8,
-        step=0.1,
-        help="Stok tutarı / Satılan Malın Maliyeti oranı"
-    )
-    stock_change_pct = None
-else:
-    stock_change_pct = st.sidebar.slider(
-        "Stok Tutar Değişimi (%)",
-        min_value=-50.0,
-        max_value=100.0,
-        value=0.0,
-        step=5.0,
-        help="2025'e göre stok tutarında % artış veya azalış"
-    ) / 100
-    stock_ratio_target = None
+stock_change_pct = st.sidebar.slider(
+    "Stok Tutar Değişimi (%)",
+    min_value=-50.0,
+    max_value=100.0,
+    value=0.0,
+    step=5.0,
+    help="2025'e göre stok tutarında % artış veya azalış. Her grup kendi stok/SMM oranını korur."
+) / 100
 
 # Session state - veri tabloları
 if 'monthly_targets' not in st.session_state:
@@ -172,6 +142,7 @@ with main_tabs[0]:
                 st.session_state.monthly_targets,
                 use_container_width=True,
                 hide_index=True,
+                disabled=False,
                 column_config={
                     'Ay': st.column_config.NumberColumn('Ay', disabled=True),
                     'Ay Adı': st.column_config.TextColumn('Ay Adı', disabled=True),
@@ -191,7 +162,7 @@ with main_tabs[0]:
             st.markdown("#### 🔧 Hızlı İşlemler")
             
             if st.button("↺ Varsayılana Dön", key='reset_monthly'):
-                st.session_state.monthly_targets['Hedef (%)'] = general_growth * 100
+                st.session_state.monthly_targets['Hedef (%)'] = 15.0
                 st.rerun()
             
             if st.button("⊕ Tümünü +5%", key='inc_monthly'):
@@ -222,6 +193,7 @@ with main_tabs[0]:
                 st.session_state.maingroup_targets,
                 use_container_width=True,
                 hide_index=True,
+                disabled=False,
                 height=400,
                 column_config={
                     'Ana Grup': st.column_config.TextColumn('Ana Grup', disabled=True),
@@ -241,7 +213,7 @@ with main_tabs[0]:
             st.markdown("#### 🔧 Hızlı İşlemler")
             
             if st.button("↺ Varsayılana Dön", key='reset_maingroup'):
-                st.session_state.maingroup_targets['Hedef (%)'] = general_growth * 100
+                st.session_state.maingroup_targets['Hedef (%)'] = 15.0
                 st.rerun()
             
             if st.button("⊕ Tümünü +5%", key='inc_maingroup'):
@@ -290,6 +262,7 @@ with main_tabs[0]:
                 st.session_state.lessons_learned,
                 use_container_width=True,
                 hide_index=True,
+                disabled=False,
                 height=400,
                 column_config=column_config,
                 key='lessons_editor'
@@ -363,11 +336,17 @@ with main_tabs[0]:
                     for month in range(1, 13):
                         lessons_learned_dict[(main_group, month)] = row[str(month)]
                 
+                # Genel büyüme parametresi - ay ve grup hedeflerinin ortalaması
+                general_growth = (
+                    st.session_state.monthly_targets['Hedef (%)'].mean() +
+                    st.session_state.maingroup_targets['Hedef (%)'].mean()
+                ) / 200  # İki ortalamayı birleştir ve yüzdeye çevir
+                
                 # Tahmin yap
                 full_data = forecaster.get_full_data_with_forecast(
                     growth_param=general_growth,
                     margin_improvement=margin_improvement,
-                    stock_ratio_target=stock_ratio_target,
+                    stock_ratio_target=None,  # Artık kullanmıyoruz
                     stock_change_pct=stock_change_pct,
                     monthly_growth_targets=monthly_growth_targets,
                     maingroup_growth_targets=maingroup_growth_targets,
@@ -434,27 +413,20 @@ with main_tabs[1]:
             )
         
         with col4:
-            if stock_change_pct is not None:
-                stock_2026 = summary[2026]['Avg_Stock']
-                stock_2025 = summary[2025]['Avg_Stock']
-                stock_change = ((stock_2026 - stock_2025) / stock_2025 * 100) if stock_2025 > 0 else 0
-                
-                st.metric(
-                    label="2026 Ort. Stok",
-                    value=f"₺{stock_2026:,.0f}",
-                    delta=f"%{stock_change:+.1f} vs 2025"
-                )
-            else:
-                stock_weekly_2026 = summary[2026]['Avg_Stock_COGS_Weekly']
-                stock_weekly_2025 = summary[2025]['Avg_Stock_COGS_Weekly']
-                weekly_change = stock_weekly_2026 - stock_weekly_2025
-                
-                st.metric(
-                    label="2026 Stok/SMM (Haftalık)",
-                    value=f"{stock_weekly_2026:.2f} hafta",
-                    delta=f"{weekly_change:+.2f} hafta vs 2025"
-                )
-                st.caption("Stok / (Aylık SMM ÷ gün × 7)")
+            # Stok metrikleri - artık sadece tutar bazlı
+            stock_2026 = summary[2026]['Avg_Stock']
+            stock_2025 = summary[2025]['Avg_Stock']
+            stock_change = ((stock_2026 - stock_2025) / stock_2025 * 100) if stock_2025 > 0 else 0
+            
+            st.metric(
+                label="2026 Ort. Stok",
+                value=f"₺{stock_2026:,.0f}",
+                delta=f"%{stock_change:+.1f} vs 2025"
+            )
+            
+            # Haftalık oran da göster
+            stock_weekly_2026 = summary[2026]['Avg_Stock_COGS_Weekly']
+            st.caption(f"Stok/SMM: {stock_weekly_2026:.2f} hafta")
         
         # İKİNCİ SATIR - Tahmin Kalite Metrikleri
         st.markdown("### 🎯 Tahmin Güvenilirlik Göstergeleri")
@@ -863,6 +835,92 @@ with main_tabs[2]:
             file_name=f'budget_comparison_month_{selected_month}.csv',
             mime='text/csv'
         )
+        
+        # TOPLU CSV İNDİR - TÜM AYLAR VE GRUPLAR
+        st.markdown("---")
+        st.subheader("📊 Toplu Veri İndirme - Tüm Aylar")
+        st.caption("2024, 2025 ve 2026 verilerinin tamamını ay ve ana grup detayında indirin")
+        
+        if st.button("🔄 Toplu CSV Hazırla", type="primary"):
+            with st.spinner("CSV dosyası hazırlanıyor..."):
+                # Tüm aylar için veri hazırla
+                all_data = []
+                
+                for month in range(1, 13):
+                    month_data_2024 = full_data[(full_data['Year'] == 2024) & (full_data['Month'] == month)].copy()
+                    month_data_2025 = full_data[(full_data['Year'] == 2025) & (full_data['Month'] == month)].copy()
+                    month_data_2026 = full_data[(full_data['Year'] == 2026) & (full_data['Month'] == month)].copy()
+                    
+                    # Birleştir
+                    month_comparison = month_data_2024[['MainGroup', 'Sales', 'GrossProfit', 'GrossMargin%', 'Stock', 'COGS']].rename(
+                        columns={
+                            'Sales': 'Satis_2024',
+                            'GrossProfit': 'BrutKar_2024',
+                            'GrossMargin%': 'BrutMarj_2024',
+                            'Stock': 'Stok_2024',
+                            'COGS': 'SMM_2024'
+                        }
+                    )
+                    
+                    month_comparison = month_comparison.merge(
+                        month_data_2025[['MainGroup', 'Sales', 'GrossProfit', 'GrossMargin%', 'Stock', 'COGS']].rename(
+                            columns={
+                                'Sales': 'Satis_2025',
+                                'GrossProfit': 'BrutKar_2025',
+                                'GrossMargin%': 'BrutMarj_2025',
+                                'Stock': 'Stok_2025',
+                                'COGS': 'SMM_2025'
+                            }
+                        ),
+                        on='MainGroup',
+                        how='outer'
+                    )
+                    
+                    month_comparison = month_comparison.merge(
+                        month_data_2026[['MainGroup', 'Sales', 'GrossProfit', 'GrossMargin%', 'Stock', 'COGS']].rename(
+                            columns={
+                                'Sales': 'Satis_2026',
+                                'GrossProfit': 'BrutKar_2026',
+                                'GrossMargin%': 'BrutMarj_2026',
+                                'Stock': 'Stok_2026',
+                                'COGS': 'SMM_2026'
+                            }
+                        ),
+                        on='MainGroup',
+                        how='outer'
+                    )
+                    
+                    month_comparison = month_comparison.fillna(0)
+                    month_comparison.insert(0, 'Ay', month)
+                    
+                    all_data.append(month_comparison)
+                
+                # Tüm ayları birleştir
+                full_comparison = pd.concat(all_data, ignore_index=True)
+                
+                # Sütun sırası düzenle
+                column_order = ['Ay', 'MainGroup',
+                               'Satis_2024', 'Satis_2025', 'Satis_2026',
+                               'BrutKar_2024', 'BrutKar_2025', 'BrutKar_2026',
+                               'BrutMarj_2024', 'BrutMarj_2025', 'BrutMarj_2026',
+                               'Stok_2024', 'Stok_2025', 'Stok_2026',
+                               'SMM_2024', 'SMM_2025', 'SMM_2026']
+                
+                full_comparison = full_comparison[column_order]
+                
+                # CSV'ye çevir - encoding ile Türkçe karakter sorunu çözülür
+                csv_data = full_comparison.to_csv(index=False, encoding='utf-8-sig', sep=';')
+                
+                st.download_button(
+                    label="📥 Toplu CSV İndir (Tüm Aylar ve Gruplar)",
+                    data=csv_data.encode('utf-8-sig'),
+                    file_name='butce_2024_2025_2026_tam_veri.csv',
+                    mime='text/csv',
+                    type='primary'
+                )
+                
+                st.success(f"✅ CSV hazır! Toplam {len(full_comparison)} satır veri")
+                st.caption("💡 Excel'de açarken: Veri > Metin/CSV'den > Ayırıcı: Noktalı virgül (;)")
 
 # Footer
 st.markdown("---")
