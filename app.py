@@ -184,195 +184,201 @@ main_tabs = st.tabs(["⚙️ Parametre Ayarları", "📊 Tahmin Sonuçları", "�
 
 # ==================== PARAMETRE AYARLARI TAB ====================
 with main_tabs[0]:
-    st.markdown("## ⚙️ Tahmin Parametrelerini Ayarlayın")
-    st.info("💡 Parametreleri serbestçe düzenleyin. '📊 Hesapla' butonuna bastığınızda tahmin güncellenir.")
+    # Kompakt başlık ve gizle/göster
+    col_header1, col_header2 = st.columns([3, 1])
     
-    param_tabs = st.tabs(["📅 Ay Bazında Hedefler", "🏪 Ana Grup Hedefleri", "📚 Alınan Dersler"])
+    with col_header1:
+        st.markdown("## ⚙️ Tahmin Parametrelerini Ayarlayın")
     
-    # --- AY BAZINDA HEDEFLER ---
-    with param_tabs[0]:
-        st.markdown("### 📅 Ay Bazında Büyüme Hedefleri")
-        st.caption("Her ay için büyüme hedefini ayarlayın.")
-        
-        col1, col2 = st.columns([4, 1])
-        
-        with col1:
-            edited_monthly = st.data_editor(
-                st.session_state.monthly_targets,
-                use_container_width=True,
-                hide_index=True,
-                height=500,
-                column_config={
-                    'Ay': st.column_config.NumberColumn('Ay', disabled=True, width='small'),
-                    'Ay Adı': st.column_config.TextColumn('Ay Adı', disabled=True, width='small'),
-                    'Hedef (%)': st.column_config.NumberColumn(
-                        'Hedef (%)',
-                        min_value=-20.0,
-                        max_value=50.0,
-                        step=1.0,
-                        format="%.1f",
-                        width='medium'
-                    )
-                },
-                key='monthly_editor'
-            )
-        
-        with col2:
-            st.markdown("#### 🔧 Hızlı İşlemler")
-            
-            if st.button("↺ Varsayılana Dön", key='reset_monthly'):
-                st.session_state.monthly_targets['Hedef (%)'] = 15.0
-                st.rerun()
-            
-            if st.button("⊕ Tümünü +5%", key='inc_monthly'):
-                st.session_state.monthly_targets['Hedef (%)'] = st.session_state.monthly_targets['Hedef (%)'] + 5
-                st.rerun()
-            
-            if st.button("⊖ Tümünü -5%", key='dec_monthly'):
-                st.session_state.monthly_targets['Hedef (%)'] = st.session_state.monthly_targets['Hedef (%)'] - 5
-                st.rerun()
-            
-            # Canlı istatistikler
-            avg_monthly = edited_monthly['Hedef (%)'].mean()
-            st.metric("📊 Ortalama", f"%{avg_monthly:.1f}")
-            
-            min_monthly = edited_monthly['Hedef (%)'].min()
-            max_monthly = edited_monthly['Hedef (%)'].max()
-            st.caption(f"Min: %{min_monthly:.1f} | Max: %{max_monthly:.1f}")
+    with col_header2:
+        show_params = st.checkbox("📋 Tabloları Göster", value=True, key="show_params_toggle")
     
-    # --- ANA GRUP HEDEFLERİ ---
-    with param_tabs[1]:
-        st.markdown("### 🏪 Ana Grup Bazında Büyüme Hedefleri")
-        st.caption("Her ana grup için büyüme hedefini ayarlayın.")
+    if show_params:
+        st.caption("💡 Parametreleri düzenleyin ve '📊 Hesapla' butonuna basın.")
         
-        col1, col2 = st.columns([4, 1])
+        param_tabs = st.tabs(["📅 Ay Bazında Hedefler", "🏪 Ana Grup Hedefleri", "📚 Alınan Dersler"])
         
-        with col1:
-            edited_maingroup = st.data_editor(
-                st.session_state.maingroup_targets,
-                use_container_width=True,
-                hide_index=True,
-                height=600,
-                column_config={
-                    'Ana Grup': st.column_config.TextColumn('Ana Grup', disabled=True, width='large'),
-                    'Hedef (%)': st.column_config.NumberColumn(
-                        'Hedef (%)',
-                        min_value=-20.0,
-                        max_value=50.0,
-                        step=1.0,
-                        format="%.1f",
-                        width='medium'
-                    )
-                },
-                key='maingroup_editor'
-            )
-        
-        with col2:
-            st.markdown("#### 🔧 Hızlı İşlemler")
+        # --- AY BAZINDA HEDEFLER ---
+        with param_tabs[0]:
+            st.markdown("### 📅 Ay Bazında Büyüme Hedefleri")
             
-            if st.button("↺ Varsayılana Dön", key='reset_maingroup'):
-                st.session_state.maingroup_targets['Hedef (%)'] = 15.0
-                st.rerun()
+            col1, col2 = st.columns([4, 1])
             
-            if st.button("⊕ Tümünü +5%", key='inc_maingroup'):
-                st.session_state.maingroup_targets['Hedef (%)'] = st.session_state.maingroup_targets['Hedef (%)'] + 5
-                st.rerun()
+            with col2:
+                st.markdown("#### 🔧 Hızlı İşlemler")
+                
+                if st.button("↺ Varsayılan", key='reset_monthly', use_container_width=True):
+                    st.session_state.monthly_targets['Hedef (%)'] = 15.0
+                    st.rerun()
+                
+                if st.button("⊕ Tümü +5%", key='inc_monthly', use_container_width=True):
+                    st.session_state.monthly_targets['Hedef (%)'] = st.session_state.monthly_targets['Hedef (%)'] + 5
+                    st.rerun()
+                
+                if st.button("⊖ Tümü -5%", key='dec_monthly', use_container_width=True):
+                    st.session_state.monthly_targets['Hedef (%)'] = st.session_state.monthly_targets['Hedef (%)'] - 5
+                    st.rerun()
             
-            if st.button("⊖ Tümünü -5%", key='dec_maingroup'):
-                st.session_state.maingroup_targets['Hedef (%)'] = st.session_state.maingroup_targets['Hedef (%)'] - 5
-                st.rerun()
-            
-            # Canlı istatistikler
-            avg_maingroup = edited_maingroup['Hedef (%)'].mean()
-            st.metric("📊 Ortalama", f"%{avg_maingroup:.1f}")
-            
-            min_maingroup = edited_maingroup['Hedef (%)'].min()
-            max_maingroup = edited_maingroup['Hedef (%)'].max()
-            st.caption(f"Min: %{min_maingroup:.1f} | Max: %{max_maingroup:.1f}")
-    
-    # --- ALINAN DERSLER ---
-    with param_tabs[2]:
-        st.markdown("### 📚 Alınan Dersler (Tecrübe Matrisi)")
-        st.caption("Geçmiş deneyimlerinizi -10 ile +10 arası puan verin.")
-        
-        col1, col2 = st.columns([5, 1])
-        
-        with col1:
-            # Ay isimleri için sütun config
-            month_names = {
-                1: 'Oca', 2: 'Şub', 3: 'Mar', 4: 'Nis', 
-                5: 'May', 6: 'Haz', 7: 'Tem', 8: 'Ağu',
-                9: 'Eyl', 10: 'Eki', 11: 'Kas', 12: 'Ara'
-            }
-            
-            column_config = {
-                'Ana Grup': st.column_config.TextColumn('Grup', disabled=True, width='small')
-            }
-            
-            for month in range(1, 13):
-                column_config[str(month)] = st.column_config.NumberColumn(
-                    month_names[month],
-                    min_value=-10,
-                    max_value=10,
-                    step=1,
-                    format="%d",
-                    width='small'
+            with col1:
+                edited_monthly = st.data_editor(
+                    st.session_state.monthly_targets,
+                    use_container_width=True,
+                    hide_index=True,
+                    height=500,
+                    column_config={
+                        'Ay': st.column_config.NumberColumn('Ay', disabled=True, width='small'),
+                        'Ay Adı': st.column_config.TextColumn('Ay Adı', disabled=True, width='small'),
+                        'Hedef (%)': st.column_config.NumberColumn(
+                            'Hedef (%)',
+                            min_value=-20.0,
+                            max_value=50.0,
+                            step=1.0,
+                            format="%.1f",
+                            width='medium'
+                        )
+                    },
+                    key='monthly_editor'
                 )
-            
-            edited_lessons = st.data_editor(
-                st.session_state.lessons_learned,
-                use_container_width=True,
-                hide_index=True,
-                height=600,
-                column_config=column_config,
-                key='lessons_editor'
-            )
+                
+                # İstatistikler kompakt
+                col_a, col_b, col_c = st.columns(3)
+                avg_monthly = edited_monthly['Hedef (%)'].mean()
+                min_monthly = edited_monthly['Hedef (%)'].min()
+                max_monthly = edited_monthly['Hedef (%)'].max()
+                
+                col_a.metric("📊 Ort", f"%{avg_monthly:.1f}")
+                col_b.metric("📉 Min", f"%{min_monthly:.1f}")
+                col_c.metric("📈 Max", f"%{max_monthly:.1f}")
         
-        with col2:
-            st.markdown("#### 🔧 Hızlı İşlemler")
+        # --- ANA GRUP HEDEFLERİ ---
+        with param_tabs[1]:
+            st.markdown("### 🏪 Ana Grup Bazında Büyüme Hedefleri")
             
-            if st.button("↺ Tümünü Sıfırla", key='reset_lessons'):
+            col1, col2 = st.columns([4, 1])
+            
+            with col2:
+                st.markdown("#### 🔧 Hızlı İşlemler")
+                
+                if st.button("↺ Varsayılan", key='reset_maingroup', use_container_width=True):
+                    st.session_state.maingroup_targets['Hedef (%)'] = 15.0
+                    st.rerun()
+                
+                if st.button("⊕ Tümü +5%", key='inc_maingroup', use_container_width=True):
+                    st.session_state.maingroup_targets['Hedef (%)'] = st.session_state.maingroup_targets['Hedef (%)'] + 5
+                    st.rerun()
+                
+                if st.button("⊖ Tümü -5%", key='dec_maingroup', use_container_width=True):
+                    st.session_state.maingroup_targets['Hedef (%)'] = st.session_state.maingroup_targets['Hedef (%)'] - 5
+                    st.rerun()
+            
+            with col1:
+                edited_maingroup = st.data_editor(
+                    st.session_state.maingroup_targets,
+                    use_container_width=True,
+                    hide_index=True,
+                    height=600,
+                    column_config={
+                        'Ana Grup': st.column_config.TextColumn('Ana Grup', disabled=True, width='large'),
+                        'Hedef (%)': st.column_config.NumberColumn(
+                            'Hedef (%)',
+                            min_value=-20.0,
+                            max_value=50.0,
+                            step=1.0,
+                            format="%.1f",
+                            width='medium'
+                        )
+                    },
+                    key='maingroup_editor'
+                )
+                
+                # İstatistikler kompakt
+                col_a, col_b, col_c = st.columns(3)
+                avg_maingroup = edited_maingroup['Hedef (%)'].mean()
+                min_maingroup = edited_maingroup['Hedef (%)'].min()
+                max_maingroup = edited_maingroup['Hedef (%)'].max()
+                
+                col_a.metric("📊 Ort", f"%{avg_maingroup:.1f}")
+                col_b.metric("📉 Min", f"%{min_maingroup:.1f}")
+                col_c.metric("📈 Max", f"%{max_maingroup:.1f}")
+        
+        # --- ALINAN DERSLER ---
+        with param_tabs[2]:
+            st.markdown("### 📚 Alınan Dersler (Tecrübe Matrisi)")
+            
+            col1, col2 = st.columns([4, 1])
+            
+            with col2:
+                st.markdown("#### 🔧 Hızlı İşlemler")
+                
+                if st.button("↺ Tümünü Sıfırla", key='reset_lessons', use_container_width=True):
+                    for month in range(1, 13):
+                        st.session_state.lessons_learned[str(month)] = 0
+                    st.rerun()
+            
+            with col1:
+                # Ay isimleri için sütun config
+                month_names = {
+                    1: 'Oca', 2: 'Şub', 3: 'Mar', 4: 'Nis', 
+                    5: 'May', 6: 'Haz', 7: 'Tem', 8: 'Ağu',
+                    9: 'Eyl', 10: 'Eki', 11: 'Kas', 12: 'Ara'
+                }
+                
+                column_config = {
+                    'Ana Grup': st.column_config.TextColumn('Grup', disabled=True, width='small')
+                }
+                
                 for month in range(1, 13):
-                    st.session_state.lessons_learned[str(month)] = 0
-                st.rerun()
+                    column_config[str(month)] = st.column_config.NumberColumn(
+                        month_names[month],
+                        min_value=-10,
+                        max_value=10,
+                        step=1,
+                        format="%d",
+                        width='small'
+                    )
+                
+                edited_lessons = st.data_editor(
+                    st.session_state.lessons_learned,
+                    use_container_width=True,
+                    hide_index=True,
+                    height=600,
+                    column_config=column_config,
+                    key='lessons_editor'
+                )
+                
+                # İstatistikler kompakt
+                col_a, col_b, col_c = st.columns(3)
+                
+                total_adjustments = 0
+                positive_count = 0
+                negative_count = 0
+                for month in range(1, 13):
+                    total_adjustments += edited_lessons[str(month)].abs().sum()
+                    positive_count += (edited_lessons[str(month)] > 0).sum()
+                    negative_count += (edited_lessons[str(month)] < 0).sum()
+                
+                col_a.metric("📊 Toplam", f"{total_adjustments:.0f}")
+                col_b.metric("➕", f"{positive_count}")
+                col_c.metric("➖", f"{negative_count}")
             
-            # Canlı istatistikler
-            total_adjustments = 0
-            for month in range(1, 13):
-                total_adjustments += edited_lessons[str(month)].abs().sum()
-            
-            st.metric("📊 Toplam Düzeltme", f"{total_adjustments:.0f}")
-            
-            positive_count = 0
-            negative_count = 0
-            for month in range(1, 13):
-                positive_count += (edited_lessons[str(month)] > 0).sum()
-                negative_count += (edited_lessons[str(month)] < 0).sum()
-            
-            st.metric("Pozitif (+)", f"{positive_count}")
-            st.metric("Negatif (-)", f"{negative_count}")
-        
-        # Açıklayıcı örnekler
-        st.markdown("---")
-        st.markdown("#### 💡 Örnek Kullanım Senaryoları")
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.success("**+5 puan** → ~%2.5 artış")
-            st.caption("Örnek: Ocak/Çaydanlık'ta stok yetersizdi, talep karşılanamadı")
-        
-        with col2:
-            st.error("**-3 puan** → ~%1.5 azalış")
-            st.caption("Örnek: Şubat/Kozmetik'te çok indirimle satıldı, marj düştü")
-        
-        with col3:
-            st.info("**0 puan** → Değişiklik yok")
-            st.caption("Normal seyir, özel bir durum olmadı")
+            # Açıklayıcı örnekler - Expander içinde
+            with st.expander("💡 Örnek Kullanım Senaryoları"):
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.success("**+5 puan** → ~%2.5 artış")
+                    st.caption("Örnek: Ocak/Çaydanlık'ta stok yetersizdi")
+                
+                with col2:
+                    st.error("**-3 puan** → ~%1.5 azalış")
+                    st.caption("Örnek: Şubat/Kozmetik'te çok indirim")
+                
+                with col3:
+                    st.info("**0 puan** → Değişiklik yok")
+                    st.caption("Normal seyir")
     
-    # --- BÜYÜK HESAPLA BUTONU ---
+    # --- BÜYÜK HESAPLA BUTONU (her zaman görünür) ---
     st.markdown("---")
-    st.markdown("### 🚀 Tahmini Hesapla")
     
     col1, col2, col3 = st.columns([1, 2, 1])
     
@@ -427,8 +433,7 @@ with main_tabs[0]:
                 }
                 
                 st.success("✅ Tahmin başarıyla hesaplandı! 'Tahmin Sonuçları' sekmesine geçin.")
-
-
+                
 # ==================== TAHMİN SONUÇLARI TAB ====================
 with main_tabs[1]:
     if st.session_state.forecast_result is None:
