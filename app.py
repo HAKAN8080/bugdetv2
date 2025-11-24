@@ -189,33 +189,33 @@ with main_tabs[0]:
     
     param_tabs = st.tabs(["📅 Ay Bazında Hedefler", "🏪 Ana Grup Hedefleri", "📚 Alınan Dersler"])
     
+    # --- AY BAZINDA HEDEFLER ---
     with param_tabs[0]:
-    st.markdown("### 📅 Ay Bazında Büyüme Hedefleri")
-    st.caption("Her ay için büyüme hedefini ayarlayın.")
-    
-    col1, col2 = st.columns([4, 1])  # 3'ten 4'e çıkardık
-    
-    with col1:
-        edited_monthly = st.data_editor(
-            st.session_state.monthly_targets,
-            use_container_width=True,
-            hide_index=True,
-            height=500,  # EKLENEN SATIR - Tablo yüksekliği
-            column_config={
-                'Ay': st.column_config.NumberColumn('Ay', disabled=True, width='small'),  # small ekledik
-                'Ay Adı': st.column_config.TextColumn('Ay Adı', disabled=True, width='small'),  # small ekledik
-                'Hedef (%)': st.column_config.NumberColumn(
-                    'Hedef (%)',
-                    min_value=-20.0,
-                    max_value=50.0,
-                    step=1.0,
-                    format="%.1f",
-                    width='medium'  # medium ekledik
-                )
-            },
-            key='monthly_editor'
-        )
-            # SADECE oku, yazma - focus kaybını önler
+        st.markdown("### 📅 Ay Bazında Büyüme Hedefleri")
+        st.caption("Her ay için büyüme hedefini ayarlayın.")
+        
+        col1, col2 = st.columns([4, 1])
+        
+        with col1:
+            edited_monthly = st.data_editor(
+                st.session_state.monthly_targets,
+                use_container_width=True,
+                hide_index=True,
+                height=500,
+                column_config={
+                    'Ay': st.column_config.NumberColumn('Ay', disabled=True, width='small'),
+                    'Ay Adı': st.column_config.TextColumn('Ay Adı', disabled=True, width='small'),
+                    'Hedef (%)': st.column_config.NumberColumn(
+                        'Hedef (%)',
+                        min_value=-20.0,
+                        max_value=50.0,
+                        step=1.0,
+                        format="%.1f",
+                        width='medium'
+                    )
+                },
+                key='monthly_editor'
+            )
         
         with col2:
             st.markdown("#### 🔧 Hızlı İşlemler")
@@ -232,7 +232,7 @@ with main_tabs[0]:
                 st.session_state.monthly_targets['Hedef (%)'] = st.session_state.monthly_targets['Hedef (%)'] - 5
                 st.rerun()
             
-            # Canlı istatistikler - DÖNEN DEĞERİ kullan
+            # Canlı istatistikler
             avg_monthly = edited_monthly['Hedef (%)'].mean()
             st.metric("📊 Ortalama", f"%{avg_monthly:.1f}")
             
@@ -243,29 +243,29 @@ with main_tabs[0]:
     # --- ANA GRUP HEDEFLERİ ---
     with param_tabs[1]:
         st.markdown("### 🏪 Ana Grup Bazında Büyüme Hedefleri")
-        st.caption("Her ana grup için büyüme hedefini ayarlayın. Bu hedef tüm aylar için uygulanır.")
+        st.caption("Her ana grup için büyüme hedefini ayarlayın.")
         
-        col1, col2 = st.columns([3, 1])
+        col1, col2 = st.columns([4, 1])
         
         with col1:
             edited_maingroup = st.data_editor(
                 st.session_state.maingroup_targets,
                 use_container_width=True,
                 hide_index=True,
-                height=400,
+                height=600,
                 column_config={
-                    'Ana Grup': st.column_config.TextColumn('Ana Grup', disabled=True),
+                    'Ana Grup': st.column_config.TextColumn('Ana Grup', disabled=True, width='large'),
                     'Hedef (%)': st.column_config.NumberColumn(
                         'Hedef (%)',
                         min_value=-20.0,
                         max_value=50.0,
                         step=1.0,
-                        format="%.1f"
+                        format="%.1f",
+                        width='medium'
                     )
                 },
                 key='maingroup_editor'
             )
-            # SADECE oku, yazma
         
         with col2:
             st.markdown("#### 🔧 Hızlı İşlemler")
@@ -282,7 +282,7 @@ with main_tabs[0]:
                 st.session_state.maingroup_targets['Hedef (%)'] = st.session_state.maingroup_targets['Hedef (%)'] - 5
                 st.rerun()
             
-            # Canlı istatistikler - DÖNEN DEĞERİ kullan
+            # Canlı istatistikler
             avg_maingroup = edited_maingroup['Hedef (%)'].mean()
             st.metric("📊 Ortalama", f"%{avg_maingroup:.1f}")
             
@@ -293,17 +293,20 @@ with main_tabs[0]:
     # --- ALINAN DERSLER ---
     with param_tabs[2]:
         st.markdown("### 📚 Alınan Dersler (Tecrübe Matrisi)")
-        st.caption("Geçmiş deneyimlerinizi -10 ile +10 arası puan vererek girin. Her puan ~%0.5 etki yapar (max ±%5).")
+        st.caption("Geçmiş deneyimlerinizi -10 ile +10 arası puan verin.")
         
-        col1, col2 = st.columns([4, 1])
+        col1, col2 = st.columns([5, 1])
         
         with col1:
             # Ay isimleri için sütun config
-            month_names = {1: 'Oca', 2: 'Şub', 3: 'Mar', 4: 'Nis', 5: 'May', 6: 'Haz',
-                          7: 'Tem', 8: 'Ağu', 9: 'Eyl', 10: 'Eki', 11: 'Kas', 12: 'Ara'}
+            month_names = {
+                1: 'Oca', 2: 'Şub', 3: 'Mar', 4: 'Nis', 
+                5: 'May', 6: 'Haz', 7: 'Tem', 8: 'Ağu',
+                9: 'Eyl', 10: 'Eki', 11: 'Kas', 12: 'Ara'
+            }
             
             column_config = {
-                'Ana Grup': st.column_config.TextColumn('Ana Grup', disabled=True, width='medium')
+                'Ana Grup': st.column_config.TextColumn('Grup', disabled=True, width='small')
             }
             
             for month in range(1, 13):
@@ -320,11 +323,10 @@ with main_tabs[0]:
                 st.session_state.lessons_learned,
                 use_container_width=True,
                 hide_index=True,
-                height=400,
+                height=600,
                 column_config=column_config,
                 key='lessons_editor'
             )
-            # SADECE oku, yazma
         
         with col2:
             st.markdown("#### 🔧 Hızlı İşlemler")
@@ -334,7 +336,7 @@ with main_tabs[0]:
                     st.session_state.lessons_learned[str(month)] = 0
                 st.rerun()
             
-            # Canlı istatistikler - DÖNEN DEĞERİ kullan
+            # Canlı istatistikler
             total_adjustments = 0
             for month in range(1, 13):
                 total_adjustments += edited_lessons[str(month)].abs().sum()
@@ -377,7 +379,7 @@ with main_tabs[0]:
     with col2:
         if st.button("📊 Hesapla ve Sonuçları Göster", type='primary', use_container_width=True, key='calculate_forecast'):
             with st.spinner('Tahmin hesaplanıyor...'):
-                # BURADA session_state'i güncelle - dönen değerlerle
+                # Session state'i güncelle
                 st.session_state.monthly_targets = edited_monthly
                 st.session_state.maingroup_targets = edited_maingroup
                 st.session_state.lessons_learned = edited_lessons
@@ -398,11 +400,11 @@ with main_tabs[0]:
                     for month in range(1, 13):
                         lessons_learned_dict[(main_group, month)] = row[str(month)]
                 
-                # Genel büyüme parametresi - ay ve grup hedeflerinin ortalaması
+                # Genel büyüme parametresi
                 general_growth = (
                     edited_monthly['Hedef (%)'].mean() +
                     edited_maingroup['Hedef (%)'].mean()
-                ) / 200  # İki ortalamayı birleştir ve yüzdeye çevir
+                ) / 200
                 
                 # Tahmin yap
                 full_data = forecaster.get_full_data_with_forecast(
@@ -417,7 +419,7 @@ with main_tabs[0]:
                 summary = forecaster.get_summary_stats(full_data)
                 quality_metrics = forecaster.get_forecast_quality_metrics(full_data)
                 
-                # Sonuçları session state'e kaydet
+                # Sonuçları kaydet
                 st.session_state.forecast_result = {
                     'full_data': full_data,
                     'summary': summary,
@@ -425,6 +427,7 @@ with main_tabs[0]:
                 }
                 
                 st.success("✅ Tahmin başarıyla hesaplandı! 'Tahmin Sonuçları' sekmesine geçin.")
+
 
 # ==================== TAHMİN SONUÇLARI TAB ====================
 with main_tabs[1]:
