@@ -189,31 +189,32 @@ with main_tabs[0]:
     
     param_tabs = st.tabs(["📅 Ay Bazında Hedefler", "🏪 Ana Grup Hedefleri", "📚 Alınan Dersler"])
     
-    # --- AY BAZINDA HEDEFLER ---
     with param_tabs[0]:
-        st.markdown("### 📅 Ay Bazında Büyüme Hedefleri")
-        st.caption("Her ay için büyüme hedefini ayarlayın. Bu hedef tüm ana gruplar için uygulanır.")
-        
-        col1, col2 = st.columns([3, 1])
-        
-        with col1:
-            edited_monthly = st.data_editor(
-                st.session_state.monthly_targets,
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    'Ay': st.column_config.NumberColumn('Ay', disabled=True),
-                    'Ay Adı': st.column_config.TextColumn('Ay Adı', disabled=True),
-                    'Hedef (%)': st.column_config.NumberColumn(
-                        'Hedef (%)',
-                        min_value=-20.0,
-                        max_value=50.0,
-                        step=1.0,
-                        format="%.1f"
-                    )
-                },
-                key='monthly_editor'
-            )
+    st.markdown("### 📅 Ay Bazında Büyüme Hedefleri")
+    st.caption("Her ay için büyüme hedefini ayarlayın.")
+    
+    col1, col2 = st.columns([4, 1])  # 3'ten 4'e çıkardık
+    
+    with col1:
+        edited_monthly = st.data_editor(
+            st.session_state.monthly_targets,
+            use_container_width=True,
+            hide_index=True,
+            height=500,  # EKLENEN SATIR - Tablo yüksekliği
+            column_config={
+                'Ay': st.column_config.NumberColumn('Ay', disabled=True, width='small'),  # small ekledik
+                'Ay Adı': st.column_config.TextColumn('Ay Adı', disabled=True, width='small'),  # small ekledik
+                'Hedef (%)': st.column_config.NumberColumn(
+                    'Hedef (%)',
+                    min_value=-20.0,
+                    max_value=50.0,
+                    step=1.0,
+                    format="%.1f",
+                    width='medium'  # medium ekledik
+                )
+            },
+            key='monthly_editor'
+        )
             # SADECE oku, yazma - focus kaybını önler
         
         with col2:
