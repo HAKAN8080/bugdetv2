@@ -258,11 +258,11 @@ class BudgetForecaster:
                     month_forecast['Year'] = 2025
                     month_forecast['Month'] = target_month
                     
-                    # 2024-2025 trend uygula (× 1.05 konservatif)
+                    # 2024-2025 trend uygula (× 1.15 = %15 büyüme)
                     month_forecast['Sales'] = month_forecast['Sales'] * 1.15
-                    month_forecast['GrossProfit'] = month_forecast['GrossProfit'] * 1.20
-                    month_forecast['COGS'] = month_forecast['COGS'] * 1.10
-                    month_forecast['Stock'] = month_forecast['Stock'] * 1.00
+                    month_forecast['GrossProfit'] = month_forecast['GrossProfit'] * 1.15
+                    month_forecast['COGS'] = month_forecast['COGS'] * 1.15
+                    month_forecast['Stock'] = month_forecast['Stock'] * 1.10
                     
                     # Stok oranı
                     month_forecast['Stock_COGS_Ratio'] = np.where(
@@ -281,11 +281,20 @@ class BudgetForecaster:
             # *** DİĞER AYLAR İÇİN NORMAL TAHMİN ***
             # 2026+ için: GEÇEN YILIN AYNI AYINI BASE AL
             if target_year >= 2026:
-                # Geçen yılın aynı ayını bul (2025'teki aynı ay)
+                # Önce self.data'dan bak (gerçek veri için)
                 same_month_prev_year = self.data[
                     (self.data['Year'] == target_year - 1) & 
                     (self.data['Month'] == target_month)
                 ]
+                
+                # Gerçek veri yoksa, önceki tahminlerden bak
+                if len(same_month_prev_year) == 0 or same_month_prev_year['Sales'].sum() < 100000:
+                    # forecast_data içinde ara (örn: 2025/11-12 tahmini)
+                    for prev_forecast in forecast_data:
+                        if len(prev_forecast) > 0:
+                            if prev_forecast.iloc[0]['Year'] == target_year - 1 and prev_forecast.iloc[0]['Month'] == target_month:
+                                same_month_prev_year = prev_forecast.copy()
+                                break
                 
                 if len(same_month_prev_year) > 0 and same_month_prev_year['Sales'].sum() > 100000:
                     # Geçen yılın aynı ayını kullan - direkt, trend ekleme!
