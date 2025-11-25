@@ -272,15 +272,41 @@ class BudgetForecaster:
                     )
                     
                     forecast_data.append(month_forecast)
+                    
+                    # *** BU TAHMİNİ self.data'YA EKLE (2026 için kullanılsın) ***
+                    # Mevcut tahmini çıkar
+                    self.data = self.data[~((self.data['Year'] == target_year) & (self.data['Month'] == target_month))]
+                    # Yeni tahmini ekle
+                    self.data = pd.concat([self.data, month_forecast], ignore_index=True)
+                    self.data = self.data.sort_values(['Year', 'Month', 'MainGroup']).reset_index(drop=True)
+                    
                     print(f"📅 {target_year}/{target_month} özel tahmin (2024/{target_month} × 1.05)")
                     continue
             
             # *** DİĞER AYLAR İÇİN NORMAL TAHMİN ***
-            # HER ZAMAN SON GERÇEKLEŞEN AYI BASE AL (2025 Ekim)
-            # Sadece mevsimsellik ve parametreler değişsin
-            month_forecast = base_data.copy()
-            month_forecast['Year'] = target_year
-            month_forecast['Month'] = target_month
+            # 2026+ için: GEÇEN YILIN AYNI AYINI BASE AL
+            if target_year >= 2026:
+                # Geçen yılın aynı ayını bul (2025'teki aynı ay)
+                same_month_prev_year = self.data[
+                    (self.data['Year'] == target_year - 1) & 
+                    (self.data['Month'] == target_month)
+                ]
+                
+                if len(same_month_prev_year) > 0 and same_month_prev_year['Sales'].sum() > 100000:
+                    # Geçen yılın aynı ayını kullan
+                    month_forecast = same_month_prev_year.copy()
+                    month_forecast['Year'] = target_year
+                    month_forecast['Month'] = target_month
+                else:
+                    # Fallback: base_data
+                    month_forecast = base_data.copy()
+                    month_forecast['Year'] = target_year
+                    month_forecast['Month'] = target_month
+            else:
+                # 2025 içindeyiz, base_data kullan
+                month_forecast = base_data.copy()
+                month_forecast['Year'] = target_year
+                month_forecast['Month'] = target_month
             
             # Mevsimselliği ekle
             month_forecast = month_forecast.merge(
