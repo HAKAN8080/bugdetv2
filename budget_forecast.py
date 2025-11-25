@@ -273,6 +273,11 @@ class BudgetForecaster:
                     
                     forecast_data.append(month_forecast)
                     
+                    # *** DEBUG: TOPLAM SATIŞI YAZDIR ***
+                    total_sales = month_forecast['Sales'].sum()
+                    print(f"📅 {target_year}/{target_month} özel tahmin (2024/{target_month} × 1.05)")
+                    print(f"   → Toplam Satış: {total_sales:,.0f} TL")
+                    
                     # *** BU TAHMİNİ self.data'YA EKLE (2026 için kullanılsın) ***
                     # Mevcut tahmini çıkar
                     self.data = self.data[~((self.data['Year'] == target_year) & (self.data['Month'] == target_month))]
@@ -280,7 +285,6 @@ class BudgetForecaster:
                     self.data = pd.concat([self.data, month_forecast], ignore_index=True)
                     self.data = self.data.sort_values(['Year', 'Month', 'MainGroup']).reset_index(drop=True)
                     
-                    print(f"📅 {target_year}/{target_month} özel tahmin (2024/{target_month} × 1.05)")
                     continue
             
             # *** DİĞER AYLAR İÇİN NORMAL TAHMİN ***
