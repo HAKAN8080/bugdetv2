@@ -247,11 +247,15 @@ class BudgetForecaster:
             
             # *** İLK 2 AY İÇİN ÖZEL YAKLAŞIM (SADECE 2025 Kasım-Aralık) ***
             if target_year == 2025 and target_month in [11, 12]:
+                print(f"🔍 DEBUG: Özel tahmin bloğuna girildi: {target_year}/{target_month}")
+                
                 # Geçen yılın aynı ayını baz al
                 same_month_last_year = self.data[
                     (self.data['Year'] == 2024) & 
                     (self.data['Month'] == target_month)
                 ].copy()
+                
+                print(f"🔍 DEBUG: 2024/{target_month} satır sayısı: {len(same_month_last_year)}")
                 
                 if len(same_month_last_year) > 0:
                     month_forecast = same_month_last_year.copy()
@@ -286,6 +290,8 @@ class BudgetForecaster:
                     self.data = self.data.sort_values(['Year', 'Month', 'MainGroup']).reset_index(drop=True)
                     
                     continue
+                else:
+                    print(f"❌ DEBUG: 2024/{target_month} verisi bulunamadı! Normal tahmina geçiliyor.")
             
             # *** DİĞER AYLAR İÇİN NORMAL TAHMİN ***
             # 2026+ için: GEÇEN YILIN AYNI AYINI BASE AL
