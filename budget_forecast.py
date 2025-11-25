@@ -104,7 +104,7 @@ class BudgetForecaster:
                     self._estimate_month(year, month)
     
     def _estimate_month(self, year, month):
-        """Belirli bir ayı tahmin et"""
+        """Belirli bir ayı tahmin et - ÇOK KONSERVATIF"""
         
         # Önceki ayı al
         prev_month = month - 1
@@ -119,30 +119,51 @@ class BudgetForecaster:
         if len(prev_data) == 0:
             return  # Önceki ay da yoksa tahmin yapma
         
-        # Tahmini oluştur - KONSERVATIF
+        # ÇOK KONSERVATIF TAHMİN
         estimate = prev_data.copy()
         estimate['Month'] = month
         estimate['Year'] = year
         
-        # Hafif büyüme (mevsimsellik faktörü)
-        if month == 12:
-            factor = 1.03  # Aralık hafif yüksek
-        elif month == 11:
-            factor = 1.01  # Kasım normal
-        else:
-            factor = 1.0
+        # Aynı ayın geçen yıl verisi var mı?
+        same_month_last_year = self.data[
+            (self.data['Year'] == year - 1) & 
+            (self.data['Month'] == month)
+        ]
         
-        estimate['Sales'] = estimate['Sales'] * factor
-        estimate['GrossProfit'] = estimate['GrossProfit'] * factor
-        estimate['COGS'] = estimate['COGS'] * factor
-        estimate['Stock'] = estimate['Stock'] * 1.01
+        if len(same_month_last_year) > 0:
+            # Geçen yılın aynı ayı varsa, ona göre tahmin et
+            last_year_total = same_month_last_year['Sales'].sum()
+            
+            if last_year_total > 0:
+                # Geçen yılın aynı ayı + hafif büyüme (%5 max)
+                for idx, row in estimate.iterrows():
+                    main_group = row['MainGroup']
+                    
+                    # Bu grubun geçen yıl aynı aydaki değeri
+                    group_last_year = same_month_last_year[
+                        same_month_last_year['MainGroup'] == main_group
+                    ]
+                    
+                    if len(group_last_year) > 0:
+                        # Geçen yılın aynı ayı × 1.05 (max %5 büyüme)
+                        estimate.loc[idx, 'Sales'] = group_last_year.iloc[0]['Sales'] * 1.05
+                        estimate.loc[idx, 'GrossProfit'] = group_last_year.iloc[0]['GrossProfit'] * 1.05
+                        estimate.loc[idx, 'COGS'] = group_last_year.iloc[0]['COGS'] * 1.05
+                        estimate.loc[idx, 'Stock'] = group_last_year.iloc[0]['Stock'] * 1.02
+        else:
+            # Geçen yıl verisi yoksa, önceki ayı kullan ama çok konservatif
+            # Sadece önceki ay × 0.98 (-%2 güvenli taraf)
+            estimate['Sales'] = estimate['Sales'] * 0.98
+            estimate['GrossProfit'] = estimate['GrossProfit'] * 0.98
+            estimate['COGS'] = estimate['COGS'] * 0.98
+            estimate['Stock'] = estimate['Stock'] * 1.0
         
         # Mevcut tahmini çıkar ve yenisini ekle
         self.data = self.data[~((self.data['Year'] == year) & (self.data['Month'] == month))]
         self.data = pd.concat([self.data, estimate], ignore_index=True)
         self.data = self.data.sort_values(['Year', 'Month', 'MainGroup']).reset_index(drop=True)
         
-        print(f"📅 {year}/{month} ayı tahmini eklendi (Önceki ay × {factor})")
+        print(f"📅 {year}/{month} ayı tahmini eklendi (Konservatif)")
     
     def calculate_seasonality(self):
         """Her ay için mevsimsellik indeksi hesapla"""
@@ -298,14 +319,14 @@ class BudgetForecaster:
             time_discount = 1.0 - (i * 0.01)
             time_discount = max(time_discount, 0.85)
             
-            # SATIŞ TAHMİNİ - STOK SAĞLIK FAKTÖRÜ İLE
+            # SATIŞ TAHMİNİ - STOK SAĞLIK FAKTÖRÜ VE GÜÇLÜ MEVSİMSELLİK İLE
             month_forecast['Sales'] = (
                 month_forecast['Sales'] *
                 (1 + organic_growth * 0.3) *
                 (1 + month_forecast['CombinedGrowthTarget']) *
-                (0.85 + month_forecast['SeasonalityIndex'] * 0.15) *
+                (0.6 + month_forecast['SeasonalityIndex'] * 0.4) *  # *** MEVSİMSELLİK %40'A ÇIKTI ***
                 time_discount *
-                month_forecast['StockHealthFactor']  # *** STOK SAĞLIK FAKTÖRÜ ***
+                month_forecast['StockHealthFactor']
             )
             
             # Marj iyileştirme
