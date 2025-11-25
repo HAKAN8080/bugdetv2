@@ -276,20 +276,9 @@ class BudgetForecaster:
                     continue
             
             # *** DİĞER AYLAR İÇİN NORMAL TAHMİN ***
-            # 2026+ için: Daha önce tahmin edilen 2025 Aralık'ı veya son ayı base al
-            if target_year > 2025:
-                # Önceki tahminleri kontrol et - varsa en sonuncusu
-                if len(forecast_data) > 0:
-                    # En son tahmin edilen ayı base al
-                    current_base = forecast_data[-1].copy()
-                else:
-                    # Fallback: orijinal base_data
-                    current_base = base_data.copy()
-            else:
-                # 2025 içindeyiz, orijinal base_data kullan
-                current_base = base_data.copy()
-            
-            month_forecast = current_base.copy()
+            # HER ZAMAN SON GERÇEKLEŞEN AYI BASE AL (2025 Ekim)
+            # Sadece mevsimsellik ve parametreler değişsin
+            month_forecast = base_data.copy()
             month_forecast['Year'] = target_year
             month_forecast['Month'] = target_month
             
