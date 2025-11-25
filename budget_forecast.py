@@ -61,66 +61,89 @@ class BudgetForecaster:
             0
         )
         
-        # 2025 Aralık ayı eksikse tahmin et
-        self._fill_missing_december_2025()
+        # Son gerçekleşen yıl-ay'ı bul
+        self._find_last_actual_period()
+        
+        # Eksik ayları tahmin et
+        self._fill_missing_months()
     
-    def _fill_missing_december_2025(self):
-        """2025 Kasım ve Aralık ayları eksik veya sıfırsa tahmin et"""
+    def _find_last_actual_period(self):
+        """Son gerçekleşen veriyi bul (Sales > 0 olan son ay)"""
+        # Her yıl-ay için toplam satışı kontrol et
+        period_sales = self.data.groupby(['Year', 'Month'])['Sales'].sum().reset_index()
+        period_sales = period_sales[period_sales['Sales'] > 100000]  # Anlamlı veri kontrolü
         
-        # 2025 Kasım kontrol et
-        november_2025 = self.data[(self.data['Year'] == 2025) & (self.data['Month'] == 11)]
-        
-        # Kasım yoksa veya toplamı çok düşükse
-        if len(november_2025) == 0 or november_2025['Sales'].sum() < 1000000:
+        if len(period_sales) > 0:
+            # Son gerçekleşen ay
+            last_period = period_sales.sort_values(['Year', 'Month'], ascending=True).iloc[-1]
+            self.last_actual_year = int(last_period['Year'])
+            self.last_actual_month = int(last_period['Month'])
             
-            # Ekim 2025 verilerini al
-            october_2025 = self.data[(self.data['Year'] == 2025) & (self.data['Month'] == 10)].copy()
-            
-            if len(october_2025) > 0:
-                # Kasım tahmini: Ekim × 1.02 (hafif artış - KONSERVATIF)
-                november_estimate = october_2025.copy()
-                november_estimate['Month'] = 11
-                november_estimate['Sales'] = november_estimate['Sales'] * 1.02
-                november_estimate['GrossProfit'] = november_estimate['GrossProfit'] * 1.02
-                november_estimate['COGS'] = november_estimate['COGS'] * 1.02
-                november_estimate['Stock'] = november_estimate['Stock'] * 1.01
-                
-                # Mevcut Kasım verisini çıkar (varsa)
-                self.data = self.data[~((self.data['Year'] == 2025) & (self.data['Month'] == 11))]
-                
-                # Yeni tahmini ekle
-                self.data = pd.concat([self.data, november_estimate], ignore_index=True)
-                self.data = self.data.sort_values(['Year', 'Month', 'MainGroup']).reset_index(drop=True)
-                
-                print("📅 2025 Kasım ayı tahmini eklendi (Ekim × 1.02)")
+            print(f"✅ Son gerçekleşen veri: {self.last_actual_year}/{self.last_actual_month}")
+        else:
+            # Varsayılan
+            self.last_actual_year = 2025
+            self.last_actual_month = 10
+            print(f"⚠️ Gerçekleşen veri bulunamadı, varsayılan: 2025/10")
+    
+    def _fill_missing_months(self):
+        """Gerçekleşen veriden sonraki eksik ayları tahmin et"""
         
-        # 2025 Aralık kontrol et
-        december_2025 = self.data[(self.data['Year'] == 2025) & (self.data['Month'] == 12)]
+        # Son gerçekleşen aydan sonraki ayları kontrol et
+        for year in [2024, 2025]:
+            for month in range(1, 13):
+                # Bu ay gerçekleşen mi?
+                if year < self.last_actual_year or (year == self.last_actual_year and month <= self.last_actual_month):
+                    continue  # Gerçekleşen veri, dokunma
+                
+                # Bu ay verisi var mı?
+                month_data = self.data[(self.data['Year'] == year) & (self.data['Month'] == month)]
+                
+                if len(month_data) == 0 or month_data['Sales'].sum() < 100000:
+                    # Eksik veya yetersiz veri - tahmin et
+                    self._estimate_month(year, month)
+    
+    def _estimate_month(self, year, month):
+        """Belirli bir ayı tahmin et"""
         
-        # Aralık yoksa veya toplamı çok düşükse
-        if len(december_2025) == 0 or december_2025['Sales'].sum() < 1000000:
-            
-            # Kasım 2025 verilerini al (yukarıda oluşturduk)
-            november_2025 = self.data[(self.data['Year'] == 2025) & (self.data['Month'] == 11)].copy()
-            
-            if len(november_2025) > 0:
-                # Aralık tahmini: Kasım × 1.05 (mevsimsellik faktörü - KONSERVATIF)
-                december_estimate = november_2025.copy()
-                december_estimate['Month'] = 12
-                december_estimate['Sales'] = december_estimate['Sales'] * 1.05
-                december_estimate['GrossProfit'] = december_estimate['GrossProfit'] * 1.05
-                december_estimate['COGS'] = december_estimate['COGS'] * 1.05
-                december_estimate['Stock'] = december_estimate['Stock'] * 1.02
-                
-                # Mevcut Aralık verisini çıkar (varsa)
-                self.data = self.data[~((self.data['Year'] == 2025) & (self.data['Month'] == 12))]
-                
-                # Yeni tahmini ekle
-                self.data = pd.concat([self.data, december_estimate], ignore_index=True)
-                self.data = self.data.sort_values(['Year', 'Month', 'MainGroup']).reset_index(drop=True)
-                
-                print("📅 2025 Aralık ayı tahmini eklendi (Kasım × 1.05)")
+        # Önceki ayı al
+        prev_month = month - 1
+        prev_year = year
         
+        if prev_month == 0:
+            prev_month = 12
+            prev_year = year - 1
+        
+        prev_data = self.data[(self.data['Year'] == prev_year) & (self.data['Month'] == prev_month)].copy()
+        
+        if len(prev_data) == 0:
+            return  # Önceki ay da yoksa tahmin yapma
+        
+        # Tahmini oluştur - KONSERVATIF
+        estimate = prev_data.copy()
+        estimate['Month'] = month
+        estimate['Year'] = year
+        
+        # Hafif büyüme (mevsimsellik faktörü)
+        if month == 12:
+            factor = 1.03  # Aralık hafif yüksek
+        elif month == 11:
+            factor = 1.01  # Kasım normal
+        else:
+            factor = 1.0
+        
+        estimate['Sales'] = estimate['Sales'] * factor
+        estimate['GrossProfit'] = estimate['GrossProfit'] * factor
+        estimate['COGS'] = estimate['COGS'] * factor
+        estimate['Stock'] = estimate['Stock'] * 1.01
+        
+        # Mevcut tahmini çıkar ve yenisini ekle
+        self.data = self.data[~((self.data['Year'] == year) & (self.data['Month'] == month))]
+        self.data = pd.concat([self.data, estimate], ignore_index=True)
+        self.data = self.data.sort_values(['Year', 'Month', 'MainGroup']).reset_index(drop=True)
+        
+        print(f"📅 {year}/{month} ayı tahmini eklendi (Önceki ay × {factor})")
+    
     def calculate_seasonality(self):
         """Her ay için mevsimsellik indeksi hesapla"""
         
@@ -144,72 +167,18 @@ class BudgetForecaster:
         
         return seasonality[['MainGroup', 'Month', 'SeasonalityIndex']]
     
-    def calculate_trend(self):
-        """Her grup için trend hesapla (2024->2025 büyümesi)"""
-        
-        # 2024 toplamı
-        total_2024 = self.data[self.data['Year'] == 2024].groupby('MainGroup')['Sales'].sum().reset_index()
-        total_2024.columns = ['MainGroup', 'Sales_2024']
-        
-        # 2025 toplamı
-        total_2025 = self.data[self.data['Year'] == 2025].groupby('MainGroup')['Sales'].sum().reset_index()
-        total_2025.columns = ['MainGroup', 'Sales_2025']
-        
-        # Merge
-        trend = total_2024.merge(total_2025, on='MainGroup')
-        
-        # Büyüme oranı hesapla
-        trend['GrowthRate'] = np.where(
-            trend['Sales_2024'] > 0,
-            (trend['Sales_2025'] - trend['Sales_2024']) / trend['Sales_2024'],
-            0
-        )
-        
-        return trend[['MainGroup', 'GrowthRate']]
-    
-    def calculate_recent_momentum(self):
-        """Son 3 ayın momentumunu hesapla"""
-        
-        # Son 3 ay (2025'in 10, 11, 12. ayları varsayalım - veri varsa)
-        recent_months = self.data[
-            (self.data['Year'] == 2025) & 
-            (self.data['Month'].isin([10, 11, 12]))
-        ]
-        
-        if len(recent_months) == 0:
-            # Veri yoksa 2025'in tamamını al
-            recent_months = self.data[self.data['Year'] == 2025]
-        
-        # Grup bazında ortalama
-        momentum = recent_months.groupby('MainGroup')['Sales'].mean().reset_index()
-        momentum.columns = ['MainGroup', 'RecentAvg']
-        
-        # Genel ortalama ile karşılaştır
-        overall_avg = self.data[self.data['Year'] == 2025].groupby('MainGroup')['Sales'].mean().reset_index()
-        overall_avg.columns = ['MainGroup', 'OverallAvg']
-        
-        momentum = momentum.merge(overall_avg, on='MainGroup')
-        
-        # Momentum skoru (son aylar / genel ortalama)
-        momentum['MomentumScore'] = np.where(
-            momentum['OverallAvg'] > 0,
-            momentum['RecentAvg'] / momentum['OverallAvg'],
-            1
-        )
-        
-        return momentum[['MainGroup', 'MomentumScore']]
-    
-    def forecast_2026(self, growth_param=0.1, margin_improvement=0.0, stock_change_pct=0.0, 
-                     monthly_growth_targets=None, maingroup_growth_targets=None, 
-                     lessons_learned=None):
+    def forecast_future_months(self, num_months=15, growth_param=0.1, margin_improvement=0.0, 
+                              stock_change_pct=0.0, monthly_growth_targets=None, 
+                              maingroup_growth_targets=None, lessons_learned=None):
         """
-        2026 tahminini yap
+        Son gerçekleşen aydan itibaren belirtilen sayıda ay tahmin et
         
         Parameters:
         -----------
-        growth_param: Genel büyüme hedefi (diğer hedefler yoksa kullanılır)
-        margin_improvement: Brüt marj iyileşme hedefi (örn: 0.02 = 2 puan)
-        stock_change_pct: Stok tutar değişim yüzdesi (örn: -0.05 = %5 azalış, 0.10 = %10 artış)
+        num_months: Kaç ay ileriye tahmin yapılacak (varsayılan 15)
+        growth_param: Genel büyüme hedefi
+        margin_improvement: Brüt marj iyileşme hedefi
+        stock_change_pct: Stok tutar değişim yüzdesi
         monthly_growth_targets: Dict {month: growth_rate} - Her ay için özel hedef
         maingroup_growth_targets: Dict {maingroup: growth_rate} - Her ana grup için özel hedef
         lessons_learned: Dict {(maingroup, month): score} - Alınan dersler (-10 ile +10 arası)
@@ -218,120 +187,173 @@ class BudgetForecaster:
         # Mevsimsellik hesapla
         seasonality = self.calculate_seasonality()
         
-        # 2025 verilerini al (base olarak kullanacağız)
-        base_2025 = self.data[self.data['Year'] == 2025].copy()
-        
-        # Mevsimselliği ekle
-        forecast = base_2025.merge(seasonality, on=['MainGroup', 'Month'], how='left')
-        forecast['SeasonalityIndex'] = forecast['SeasonalityIndex'].fillna(1.0)
+        # Son gerçekleşen ayın verisini base al
+        base_data = self.data[
+            (self.data['Year'] == self.last_actual_year) & 
+            (self.data['Month'] == self.last_actual_month)
+        ].copy()
         
         # Organik trend (2024->2025)
         total_2024 = self.data[self.data['Year'] == 2024]['Sales'].sum()
         total_2025 = self.data[self.data['Year'] == 2025]['Sales'].sum()
         organic_growth = (total_2025 - total_2024) / total_2024 if total_2024 > 0 else 0
         
-        # AY BAZINDA BÜYÜME HEDEFLERİ
-        if monthly_growth_targets is not None:
-            forecast['MonthlyGrowthTarget'] = forecast['Month'].map(monthly_growth_targets)
-            forecast['MonthlyGrowthTarget'] = forecast['MonthlyGrowthTarget'].fillna(growth_param)
-        else:
-            forecast['MonthlyGrowthTarget'] = growth_param
+        # ========================================
+        # *** STOK SAĞLIK FAKTÖRLERİNİ HESAPLA ***
+        # ========================================
         
-        # ANA GRUP BAZINDA BÜYÜME HEDEFLERİ
-        if maingroup_growth_targets is not None:
-            forecast['MainGroupGrowthTarget'] = forecast['MainGroup'].map(maingroup_growth_targets)
-            forecast['MainGroupGrowthTarget'] = forecast['MainGroupGrowthTarget'].fillna(growth_param)
-        else:
-            forecast['MainGroupGrowthTarget'] = growth_param
+        # Ortalama Stok/COGS oranı (benchmark)
+        avg_stock_ratio = base_data['Stock_COGS_Ratio'].mean()
         
-        # ALINAN DERSLER - Skor bazlı ayarlama
-        # Her puan ~%0.5 etki yapar (±10 puan = ±%5 max etki) - ÇOK KONSERVATIF
-        if lessons_learned is not None:
-            # (MainGroup, Month) bazında skor al
-            forecast['LessonsScore'] = forecast.apply(
-                lambda row: lessons_learned.get((row['MainGroup'], row['Month']), 0), 
-                axis=1
+        # Her ana grup için stok sağlık faktörü hesapla
+        stock_health_factors = {}
+        
+        for _, row in base_data.iterrows():
+            main_group = row['MainGroup']
+            group_ratio = row['Stock_COGS_Ratio']
+            
+            # Benchmark'a göre sapma
+            if avg_stock_ratio > 0:
+                ratio_deviation = (group_ratio - avg_stock_ratio) / avg_stock_ratio
+                
+                # ÇOK KONSERVATIF AYARLAMA - Max %2.5
+                if ratio_deviation > 0.5:  # %50'den fazla yüksekse (yavaş hareket)
+                    # Hafif azalt: max %2.5 azalış
+                    adjustment = -0.01 - (min(ratio_deviation - 0.5, 0.5) * 0.03)
+                    adjustment = max(adjustment, -0.025)  # Max -%2.5
+                elif ratio_deviation < -0.3:  # %30'dan fazla düşükse (hızlı hareket)
+                    # Hafif artır: max %2.5 artış
+                    adjustment = 0.01 + (min(abs(ratio_deviation) - 0.3, 0.5) * 0.03)
+                    adjustment = min(adjustment, 0.025)  # Max +%2.5
+                else:
+                    # Normal aralıkta, ayarlama yok
+                    adjustment = 0
+                
+                stock_health_factors[main_group] = 1 + adjustment
+            else:
+                stock_health_factors[main_group] = 1.0
+        
+        # ========================================
+        # *** STOK FAKTÖRÜ HESAPLANDI ***
+        # ========================================
+        
+        # Tahmin aylarını oluştur
+        forecast_data = []
+        
+        for i in range(1, num_months + 1):
+            # Hedef yıl-ay hesapla
+            target_month = self.last_actual_month + i
+            target_year = self.last_actual_year
+            
+            while target_month > 12:
+                target_month -= 12
+                target_year += 1
+            
+            # Bu ay için tahmin oluştur
+            month_forecast = base_data.copy()
+            month_forecast['Year'] = target_year
+            month_forecast['Month'] = target_month
+            
+            # Mevsimselliği ekle
+            month_forecast = month_forecast.merge(
+                seasonality[seasonality['Month'] == target_month],
+                on=['MainGroup', 'Month'],
+                how='left'
             )
-            # Skoru büyüme oranına çevir: puan × 0.005 (her puan %0.5 - çok konservatif)
-            forecast['LessonsAdjustment'] = forecast['LessonsScore'] * 0.005
-        else:
-            forecast['LessonsAdjustment'] = 0
+            month_forecast['SeasonalityIndex'] = month_forecast['SeasonalityIndex'].fillna(1.0)
+            
+            # Hedefleri uygula
+            if monthly_growth_targets is not None:
+                month_forecast['MonthlyGrowthTarget'] = monthly_growth_targets.get(target_month, growth_param)
+            else:
+                month_forecast['MonthlyGrowthTarget'] = growth_param
+            
+            if maingroup_growth_targets is not None:
+                month_forecast['MainGroupGrowthTarget'] = month_forecast['MainGroup'].map(maingroup_growth_targets)
+                month_forecast['MainGroupGrowthTarget'] = month_forecast['MainGroupGrowthTarget'].fillna(growth_param)
+            else:
+                month_forecast['MainGroupGrowthTarget'] = growth_param
+            
+            # Alınan dersler
+            if lessons_learned is not None:
+                month_forecast['LessonsScore'] = month_forecast.apply(
+                    lambda row: lessons_learned.get((row['MainGroup'], target_month), 0),
+                    axis=1
+                )
+                month_forecast['LessonsAdjustment'] = month_forecast['LessonsScore'] * 0.005
+            else:
+                month_forecast['LessonsAdjustment'] = 0
+            
+            # *** STOK SAĞLIK FAKTÖRÜNÜ EKLE ***
+            month_forecast['StockHealthFactor'] = month_forecast['MainGroup'].map(stock_health_factors)
+            month_forecast['StockHealthFactor'] = month_forecast['StockHealthFactor'].fillna(1.0)
+            
+            # Kombine büyüme hedefi
+            month_forecast['CombinedGrowthTarget'] = (
+                (month_forecast['MonthlyGrowthTarget'] + month_forecast['MainGroupGrowthTarget']) / 2 +
+                month_forecast['LessonsAdjustment']
+            )
+            
+            # Zaman faktörü (uzak gelecek daha konservatif)
+            time_discount = 1.0 - (i * 0.01)
+            time_discount = max(time_discount, 0.85)
+            
+            # SATIŞ TAHMİNİ - STOK SAĞLIK FAKTÖRÜ İLE
+            month_forecast['Sales'] = (
+                month_forecast['Sales'] *
+                (1 + organic_growth * 0.3) *
+                (1 + month_forecast['CombinedGrowthTarget']) *
+                (0.85 + month_forecast['SeasonalityIndex'] * 0.15) *
+                time_discount *
+                month_forecast['StockHealthFactor']  # *** STOK SAĞLIK FAKTÖRÜ ***
+            )
+            
+            # Marj iyileştirme
+            month_forecast['GrossMargin%'] = (month_forecast['GrossMargin%'] + margin_improvement).clip(0, 1)
+            month_forecast['GrossProfit'] = month_forecast['Sales'] * month_forecast['GrossMargin%']
+            month_forecast['COGS'] = month_forecast['Sales'] - month_forecast['GrossProfit']
+            
+            # Stok
+            month_forecast['Stock'] = month_forecast['Stock'] * (1 + stock_change_pct)
+            month_forecast['Stock_COGS_Ratio'] = np.where(
+                month_forecast['COGS'] > 0,
+                month_forecast['Stock'] / month_forecast['COGS'],
+                0
+            )
+            
+            # Gereksiz kolonları temizle
+            month_forecast = month_forecast[['Year', 'Month', 'MainGroup', 'Sales', 'GrossProfit',
+                                            'GrossMargin%', 'Stock', 'COGS', 'Stock_COGS_Ratio']]
+            
+            forecast_data.append(month_forecast)
         
-        # KOMBINE BÜYÜME HEDEFI
-        # Ay hedefi + Ana Grup hedefi + Alınan Dersler
-        forecast['CombinedGrowthTarget'] = (
-            (forecast['MonthlyGrowthTarget'] + forecast['MainGroupGrowthTarget']) / 2 +
-            forecast['LessonsAdjustment']
-        )
+        # Tüm tahminleri birleştir
+        all_forecasts = pd.concat(forecast_data, ignore_index=True)
         
-        # TAHMİN FORMÜLÜ
-        # 2025'in 11-12. ayları tahmini olduğu için daha konservatif yaklaş
-        # Gerçek veriden gelen aylar (1-10) için normal, tahmini aylar (11-12) için 0.9x çarpan
-        forecast['Month_Confidence'] = forecast['Month'].apply(
-            lambda m: 0.90 if m in [11, 12] else 1.0  # 11-12. aylar %10 daha konservatif
-        )
-        
-        # 2025 değeri × (1 + organik büyüme × 0.3) × (1 + kombine hedef) × mevsimsel düzeltme × ay güveni
-        forecast['Sales_2026'] = (
-            forecast['Sales'] *
-            (1 + organic_growth * 0.3) *  # Organik trend hafif etki
-            (1 + forecast['CombinedGrowthTarget']) *  # Ay + Ana Grup + Dersler kombine
-            (0.85 + forecast['SeasonalityIndex'] * 0.15) *  # Mevsimsellik hafif etki
-            forecast['Month_Confidence']  # Tahmini aylara konservatif yaklaşım
-        )
-        
-        # Gross Margin iyileşmesi
-        forecast['GrossMargin%_2026'] = (forecast['GrossMargin%'] + margin_improvement).clip(0, 1)
-        
-        # GrossProfit ve COGS
-        forecast['GrossProfit_2026'] = forecast['Sales_2026'] * forecast['GrossMargin%_2026']
-        forecast['COGS_2026'] = forecast['Sales_2026'] - forecast['GrossProfit_2026']
-        
-        # STOK HESAPLAMA - Her grup kendi 2025 stok/SMM oranını korur
-        # 2025 stok oranını hesapla
-        forecast['Stock_COGS_Ratio_2025'] = np.where(
-            forecast['COGS'] > 0,
-            forecast['Stock'] / forecast['COGS'],
-            0
-        )
-        
-        # 2026 stok = 2025 stok × (1 + değişim %)
-        # Bu sayede her grup kendi stok/SMM oranını korurken, toplam stok hedeflenen oranda değişir
-        forecast['Stock_2026'] = forecast['Stock'] * (1 + stock_change_pct)
-        
-        # Sonuç datasını hazırla
-        result = forecast[['Month', 'MainGroup', 'Sales_2026', 'GrossProfit_2026', 
-                          'GrossMargin%_2026', 'Stock_2026', 'COGS_2026']].copy()
-        result.columns = ['Month', 'MainGroup', 'Sales', 'GrossProfit', 
-                         'GrossMargin%', 'Stock', 'COGS']
-        result['Year'] = 2026
-        
-        # Stok/COGS oranı
-        result['Stock_COGS_Ratio'] = np.where(
-            result['COGS'] > 0,
-            result['Stock'] / result['COGS'],
-            0
-        )
-        
-        return result
+        return all_forecasts
     
-    def get_full_data_with_forecast(self, growth_param=0.1, margin_improvement=0.0, stock_change_pct=0.0, 
-                                    monthly_growth_targets=None, maingroup_growth_targets=None, 
-                                    lessons_learned=None):
-        """2024, 2025 ve 2026 tahminini birleştir"""
+    def get_full_data_with_forecast(self, num_months=15, growth_param=0.1, margin_improvement=0.0, 
+                                    stock_change_pct=0.0, monthly_growth_targets=None, 
+                                    maingroup_growth_targets=None, lessons_learned=None):
+        """Gerçekleşen veri + gelecek tahminlerini birleştir"""
         
-        forecast_2026 = self.forecast_2026(
-            growth_param, margin_improvement, stock_change_pct,
-            monthly_growth_targets, maingroup_growth_targets, 
-            lessons_learned
+        # Gelecek tahminini yap
+        forecast = self.forecast_future_months(
+            num_months=num_months,
+            growth_param=growth_param,
+            margin_improvement=margin_improvement,
+            stock_change_pct=stock_change_pct,
+            monthly_growth_targets=monthly_growth_targets,
+            maingroup_growth_targets=maingroup_growth_targets,
+            lessons_learned=lessons_learned
         )
         
-        # 2024-2025 verisini düzenle
-        historical = self.data[['Month', 'MainGroup', 'Sales', 'GrossProfit', 
-                               'GrossMargin%', 'Stock', 'COGS', 'Stock_COGS_Ratio', 'Year']].copy()
+        # Gerçekleşen veriyi düzenle
+        historical = self.data[['Year', 'Month', 'MainGroup', 'Sales', 'GrossProfit',
+                               'GrossMargin%', 'Stock', 'COGS', 'Stock_COGS_Ratio']].copy()
         
         # Birleştir
-        full_data = pd.concat([historical, forecast_2026], ignore_index=True)
+        full_data = pd.concat([historical, forecast], ignore_index=True)
         
         return full_data
     
@@ -340,20 +362,18 @@ class BudgetForecaster:
         
         summary = {}
         
-        # Aylık gün sayıları
-        days_in_month = {1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30,
-                         7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31}
+        # Tüm yılları al
+        years = sorted(data['Year'].unique())
         
-        for year in [2024, 2025, 2026]:
+        for year in years:
             year_data = data[data['Year'] == year].copy()
             
-            # Haftalık normalize Stok/SMM hesapla
-            year_data['Days'] = year_data['Month'].map(days_in_month)
-            year_data['Stock_COGS_Weekly'] = np.where(
-                year_data['COGS'] > 0,
-                year_data['Stock'] / ((year_data['COGS'] / year_data['Days']) * 7),
-                0
-            )
+            # Yıllık Stok/SMM hesapla - DOĞRU FORMÜL: Stok / (SMM/52)
+            total_stock = year_data['Stock'].mean()
+            total_cogs = year_data['COGS'].sum()
+            
+            # Stok / (SMM/52) = Haftalık SMM'ye göre stok
+            stock_cogs_weekly = (total_stock / (total_cogs / 52)) if total_cogs > 0 else 0
             
             summary[year] = {
                 'Total_Sales': year_data['Sales'].sum(),
@@ -361,16 +381,13 @@ class BudgetForecaster:
                 'Avg_GrossMargin%': (year_data['GrossProfit'].sum() / year_data['Sales'].sum() * 100) if year_data['Sales'].sum() > 0 else 0,
                 'Avg_Stock': year_data['Stock'].mean(),
                 'Avg_Stock_COGS_Ratio': year_data['Stock_COGS_Ratio'].mean(),
-                'Avg_Stock_COGS_Weekly': year_data['Stock_COGS_Weekly'].mean()
+                'Avg_Stock_COGS_Weekly': stock_cogs_weekly
             }
         
         return summary
     
     def get_forecast_quality_metrics(self, data):
-        """
-        Forecast kalite metriklerini hesapla
-        2024-2025 trendine göre 2026 tahmininin güvenilirliğini değerlendir
-        """
+        """Forecast kalite metriklerini hesapla"""
         
         # 2024 ve 2025 verilerini al
         data_2024 = data[data['Year'] == 2024].groupby('Month')['Sales'].sum().reset_index()
@@ -380,7 +397,6 @@ class BudgetForecaster:
         common_months = set(data_2024['Month']) & set(data_2025['Month'])
         
         if len(common_months) < 3:
-            # Yeterli veri yok
             return {
                 'r2_score': None,
                 'mape': None,
@@ -393,23 +409,23 @@ class BudgetForecaster:
         sales_2024 = data_2024[data_2024['Month'].isin(common_months)].sort_values('Month')['Sales'].values
         sales_2025 = data_2025[data_2025['Month'].isin(common_months)].sort_values('Month')['Sales'].values
         
-        # 2024'ten 2025'e büyüme oranlarını hesapla
+        # Büyüme oranları
         growth_rates = (sales_2025 - sales_2024) / sales_2024
         
-        # Büyüme oranının tutarlılığı (standart sapma)
-        trend_consistency = 1 - min(np.std(growth_rates), 1.0)  # 0-1 arası normalize
+        # Tutarlılık
+        trend_consistency = 1 - min(np.std(growth_rates), 1.0)
         
-        # Basit R² benzeri metrik (2024-2025 arası korelasyon)
+        # R²
         if len(sales_2024) > 1:
             correlation = np.corrcoef(sales_2024, sales_2025)[0, 1]
             r2_score = correlation ** 2
         else:
             r2_score = 0.5
         
-        # MAPE (Mean Absolute Percentage Error)
+        # MAPE
         mape = np.mean(np.abs(growth_rates)) * 100
         
-        # Güven seviyesi belirleme
+        # Güven seviyesi
         if r2_score > 0.8 and trend_consistency > 0.7:
             confidence = 'Yüksek'
         elif r2_score > 0.6 and trend_consistency > 0.5:
