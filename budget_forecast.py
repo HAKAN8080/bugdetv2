@@ -64,7 +64,9 @@ class BudgetForecaster:
         # Son gerçekleşen yıl-ay'ı bul
         self._find_last_actual_period()
         
-        # Eksik ayları tahmin et
+        # *** 2025 Kasım-Aralık için özel tahmin YAPMA ***
+        # forecast_future_months bu işi yapacak
+        # Sadece 2024'teki eksik ayları doldur
         self._fill_missing_months()
     
     def _find_last_actual_period(self):
@@ -87,88 +89,56 @@ class BudgetForecaster:
             print(f"⚠️ Gerçekleşen veri bulunamadı, varsayılan: 2025/10")
     
     def _fill_missing_months(self):
-        """Gerçekleşen veriden sonraki eksik ayları tahmin et"""
+        """SADECE 2024'teki eksik ayları tahmin et - 2025 için YAPMA"""
         
-        # Son gerçekleşen aydan sonraki ayları kontrol et
-        for year in [2024, 2025]:
-            for month in range(1, 13):
-                # Bu ay gerçekleşen mi?
-                if year < self.last_actual_year or (year == self.last_actual_year and month <= self.last_actual_month):
-                    continue  # Gerçekleşen veri, dokunma
-                
-                # Bu ay verisi var mı?
-                month_data = self.data[(self.data['Year'] == year) & (self.data['Month'] == month)]
-                
-                if len(month_data) == 0 or month_data['Sales'].sum() < 100000:
-                    # Eksik veya yetersiz veri - tahmin et
-                    self._estimate_month(year, month)
+        # SADECE 2024'ü kontrol et
+        for month in range(1, 13):
+            # Bu ay verisi var mı?
+            month_data = self.data[(self.data['Year'] == 2024) & (self.data['Month'] == month)]
+            
+            if len(month_data) == 0 or month_data['Sales'].sum() < 100000:
+                # Eksik veya yetersiz veri - tahmin et
+                self._estimate_month(2024, month)
     
     def _estimate_month(self, year, month):
-        """Belirli bir ayı tahmin et - SADECE GEÇEN YILIN AYNI AYI"""
+        """Belirli bir ayı tahmin et - SADECE 2024 İÇİN"""
         
-        # Geçen yılın aynı ayını al
-        same_month_last_year = self.data[
-            (self.data['Year'] == year - 1) & 
-            (self.data['Month'] == month)
-        ].copy()
+        # Önceki ayı al
+        prev_month = month - 1
+        prev_year = year
         
-        if len(same_month_last_year) > 0 and same_month_last_year['Sales'].sum() > 0:
-            # DOĞRU: Geçen yılın aynı ayından başla
-            estimate = same_month_last_year.copy()
-            estimate['Year'] = year
-            estimate['Month'] = month
-            
-            # × 1.05 büyüme (konservatif %5)
-            estimate['Sales'] = estimate['Sales'] * 1.05
-            estimate['GrossProfit'] = estimate['GrossProfit'] * 1.05
-            estimate['COGS'] = estimate['COGS'] * 1.05
-            estimate['Stock'] = estimate['Stock'] * 1.02
-            
-            # Stok oranını yeniden hesapla
-            estimate['Stock_COGS_Ratio'] = np.where(
-                estimate['COGS'] > 0,
-                estimate['Stock'] / estimate['COGS'],
-                0
-            )
-            
-            print(f"📅 {year}/{month} ayı tahmini eklendi (2024/{month} × 1.05)")
-        else:
-            # Fallback: Önceki ay (geçen yıl verisi yoksa)
-            prev_month = month - 1
-            prev_year = year
-            
-            if prev_month == 0:
-                prev_month = 12
-                prev_year = year - 1
-            
-            prev_data = self.data[(self.data['Year'] == prev_year) & (self.data['Month'] == prev_month)].copy()
-            
-            if len(prev_data) == 0:
-                return  # Önceki ay da yoksa tahmin yapma
-            
-            estimate = prev_data.copy()
-            estimate['Month'] = month
-            estimate['Year'] = year
-            
-            # Konservatif: × 0.98
-            estimate['Sales'] = estimate['Sales'] * 0.98
-            estimate['GrossProfit'] = estimate['GrossProfit'] * 0.98
-            estimate['COGS'] = estimate['COGS'] * 0.98
-            estimate['Stock'] = estimate['Stock'] * 1.0
-            
-            # Stok oranını yeniden hesapla
-            estimate['Stock_COGS_Ratio'] = np.where(
-                estimate['COGS'] > 0,
-                estimate['Stock'] / estimate['COGS'],
-                0
-            )
-            
-            print(f"📅 {year}/{month} ayı tahmini eklendi (Önceki ay × 0.98)")
+        if prev_month == 0:
+            prev_month = 12
+            prev_year = year - 1
+        
+        prev_data = self.data[(self.data['Year'] == prev_year) & (self.data['Month'] == prev_month)].copy()
+        
+        if len(prev_data) == 0:
+            return  # Önceki ay da yoksa tahmin yapma
+        
+        estimate = prev_data.copy()
+        estimate['Month'] = month
+        estimate['Year'] = year
+        
+        # Konservatif: × 0.98
+        estimate['Sales'] = estimate['Sales'] * 0.98
+        estimate['GrossProfit'] = estimate['GrossProfit'] * 0.98
+        estimate['COGS'] = estimate['COGS'] * 0.98
+        estimate['Stock'] = estimate['Stock'] * 1.0
+        
+        # Stok oranını yeniden hesapla
+        estimate['Stock_COGS_Ratio'] = np.where(
+            estimate['COGS'] > 0,
+            estimate['Stock'] / estimate['COGS'],
+            0
+        )
         
         # Mevcut tahmini çıkar ve yenisini ekle
         self.data = self.data[~((self.data['Year'] == year) & (self.data['Month'] == month))]
         self.data = pd.concat([self.data, estimate], ignore_index=True)
         self.data = self.data.sort_values(['Year', 'Month', 'MainGroup']).reset_index(drop=True)
+        
+        print(f"📅 {year}/{month} ayı tahmini eklendi (Önceki ay × 0.98)")
     
     def calculate_seasonality(self):
         """Her ay için mevsimsellik indeksi hesapla"""
@@ -275,7 +245,37 @@ class BudgetForecaster:
                 target_month -= 12
                 target_year += 1
             
-            # Bu ay için tahmin oluştur
+            # *** İLK 2 AY İÇİN ÖZEL YAKLAŞIM (2025 Kasım-Aralık) ***
+            if target_year == 2025 and target_month in [11, 12]:
+                # Geçen yılın aynı ayını baz al
+                same_month_last_year = self.data[
+                    (self.data['Year'] == 2024) & 
+                    (self.data['Month'] == target_month)
+                ].copy()
+                
+                if len(same_month_last_year) > 0:
+                    month_forecast = same_month_last_year.copy()
+                    month_forecast['Year'] = 2025
+                    month_forecast['Month'] = target_month
+                    
+                    # 2024-2025 trend uygula (× 1.05 konservatif)
+                    month_forecast['Sales'] = month_forecast['Sales'] * 1.05
+                    month_forecast['GrossProfit'] = month_forecast['GrossProfit'] * 1.05
+                    month_forecast['COGS'] = month_forecast['COGS'] * 1.05
+                    month_forecast['Stock'] = month_forecast['Stock'] * 1.02
+                    
+                    # Stok oranı
+                    month_forecast['Stock_COGS_Ratio'] = np.where(
+                        month_forecast['COGS'] > 0,
+                        month_forecast['Stock'] / month_forecast['COGS'],
+                        0
+                    )
+                    
+                    forecast_data.append(month_forecast)
+                    print(f"📅 {target_year}/{target_month} özel tahmin (2024/{target_month} × 1.05)")
+                    continue
+            
+            # *** DİĞER AYLAR İÇİN NORMAL TAHMİN ***
             month_forecast = base_data.copy()
             month_forecast['Year'] = target_year
             month_forecast['Month'] = target_month
