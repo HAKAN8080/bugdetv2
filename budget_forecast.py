@@ -412,9 +412,15 @@ class BudgetForecaster:
             lessons_learned=lessons_learned
         )
         
-        # Gerçekleşen veriyi düzenle
+        # Gerçekleşen veriyi düzenle - TAHMİN EDİLEN AYLARI ÇIKAR
         historical = self.data[['Year', 'Month', 'MainGroup', 'Sales', 'GrossProfit',
                                'GrossMargin%', 'Stock', 'COGS', 'Stock_COGS_Ratio']].copy()
+        
+        # Sadece gerçek veriyi al (son gerçekleşen aya kadar)
+        historical = historical[
+            (historical['Year'] < self.last_actual_year) |
+            ((historical['Year'] == self.last_actual_year) & (historical['Month'] <= self.last_actual_month))
+        ]
         
         # Birleştir
         full_data = pd.concat([historical, forecast], ignore_index=True)
