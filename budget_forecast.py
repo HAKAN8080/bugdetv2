@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
@@ -274,17 +273,13 @@ class BudgetForecaster:
                     
                     forecast_data.append(month_forecast)
                     
-                    # *** BU TAHMİNİ self.data'YA EKLE (2026 için kullanılsın) ***
-                    # Mevcut tahmini çıkar
-                    self.data = self.data[~((self.data['Year'] == target_year) & (self.data['Month'] == target_month))]
-                    # Yeni tahmini ekle
-                    self.data = pd.concat([self.data, month_forecast], ignore_index=True)
-                    self.data = self.data.sort_values(['Year', 'Month', 'MainGroup']).reset_index(drop=True)
+                    # *** 2026 için bu tahmini hafızada tut (sonraki ayların base'i olarak kullanılacak) ***
+                    # NOT: self.data'yı değiştirmiyoruz artık!
                     
                     continue
             
             # *** DİĞER AYLAR İÇİN NORMAL TAHMİN ***
-            # 2026+ için: GEÇEN YILIN AYNI AYINI BASE AL + 2024-2025 TRENDİ UYGULA
+            # 2026+ için: GEÇEN YILIN AYNI AYINI BASE AL
             if target_year >= 2026:
                 # Geçen yılın aynı ayını bul (2025'teki aynı ay)
                 same_month_prev_year = self.data[
@@ -293,18 +288,10 @@ class BudgetForecaster:
                 ]
                 
                 if len(same_month_prev_year) > 0 and same_month_prev_year['Sales'].sum() > 100000:
-                    # Geçen yılın aynı ayını kullan
+                    # Geçen yılın aynı ayını kullan - direkt, trend ekleme!
                     month_forecast = same_month_prev_year.copy()
                     month_forecast['Year'] = target_year
                     month_forecast['Month'] = target_month
-                    
-                    # *** 2024-2025 TRENDİNİ UYGULA (MIN %10 BÜYÜME) ***
-                    # Eğer kullanıcı parametresi yoksa, en azından geçen yılın trendini koru
-                    year_on_year_growth = max(organic_growth, 0.10)  # Minimum %10
-                    month_forecast['Sales'] = month_forecast['Sales'] * (1 + year_on_year_growth)
-                    month_forecast['GrossProfit'] = month_forecast['GrossProfit'] * (1 + year_on_year_growth)
-                    month_forecast['COGS'] = month_forecast['COGS'] * (1 + year_on_year_growth)
-                    month_forecast['Stock'] = month_forecast['Stock'] * (1 + year_on_year_growth * 0.5)
                 else:
                     # Fallback: base_data
                     month_forecast = base_data.copy()
@@ -360,19 +347,12 @@ class BudgetForecaster:
             time_discount = 1.0 - (i * 0.01)
             time_discount = max(time_discount, 0.85)
             
-            # *** 2026+ için organik büyümeyi atla (zaten base'e uygulandı) ***
-            if target_year >= 2026:
-                organic_factor = 1.0  # Zaten uygulandı
-            else:
-                organic_factor = 1 + organic_growth * 0.3
-            
-            # SATIŞ TAHMİNİ - STOK SAĞLIK FAKTÖRÜ VE GÜÇLÜ MEVSİMSELLİK İLE
+            # SATIŞ TAHMİNİ - STOK SAĞLIK FAKTÖRÜ VE MEVSİMSELLİK İLE
             month_forecast['Sales'] = (
                 month_forecast['Sales'] *
-                organic_factor *
+                (1 + organic_growth * 0.3) *  # Organik büyüme %30
                 (1 + month_forecast['CombinedGrowthTarget']) *
-                (0.6 + month_forecast['SeasonalityIndex'] * 0.4) *  # *** MEVSİMSELLİK %40 ***
-                time_discount *
+                (0.8 + month_forecast['SeasonalityIndex'] * 0.2) *
                 month_forecast['StockHealthFactor']
             )
             
