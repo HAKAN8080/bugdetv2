@@ -259,10 +259,10 @@ class BudgetForecaster:
                     month_forecast['Month'] = target_month
                     
                     # 2024-2025 trend uygula (× 1.05 konservatif)
-                    month_forecast['Sales'] = month_forecast['Sales'] * 1.05
-                    month_forecast['GrossProfit'] = month_forecast['GrossProfit'] * 1.05
-                    month_forecast['COGS'] = month_forecast['COGS'] * 1.05
-                    month_forecast['Stock'] = month_forecast['Stock'] * 1.02
+                    month_forecast['Sales'] = month_forecast['Sales'] * 1.15
+                    month_forecast['GrossProfit'] = month_forecast['GrossProfit'] * 1.20
+                    month_forecast['COGS'] = month_forecast['COGS'] * 1.10
+                    month_forecast['Stock'] = month_forecast['Stock'] * 1.00
                     
                     # Stok oranı
                     month_forecast['Stock_COGS_Ratio'] = np.where(
