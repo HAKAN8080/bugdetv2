@@ -262,7 +262,7 @@ class BudgetForecaster:
                     month_forecast['Sales'] = month_forecast['Sales'] * 1.22
                     month_forecast['GrossProfit'] = month_forecast['GrossProfit'] * 1.22
                     month_forecast['COGS'] = month_forecast['COGS'] * 1.22
-                    month_forecast['Stock'] = month_forecast['Stock'] * 0,95
+                    month_forecast['Stock'] = month_forecast['Stock'] * 0.95
                     
                     # Stok oranı
                     month_forecast['Stock_COGS_Ratio'] = np.where(
