@@ -258,11 +258,11 @@ class BudgetForecaster:
                     month_forecast['Year'] = 2025
                     month_forecast['Month'] = target_month
                     
-                    # 2024-2025 trend uygula (× 1.22 = %22 büyüme)
-                    month_forecast['Sales'] = month_forecast['Sales'] * 1.22
-                    month_forecast['GrossProfit'] = month_forecast['GrossProfit'] * 1.22
-                    month_forecast['COGS'] = month_forecast['COGS'] * 1.22
-                    month_forecast['Stock'] = month_forecast['Stock'] * 0.95
+                    # 2024-2025 trend uygula (× 1.15 = %15 büyüme)
+                    month_forecast['Sales'] = month_forecast['Sales'] * 1.15
+                    month_forecast['GrossProfit'] = month_forecast['GrossProfit'] * 1.15
+                    month_forecast['COGS'] = month_forecast['COGS'] * 1.15
+                    month_forecast['Stock'] = month_forecast['Stock'] * 1.10
                     
                     # Stok oranı
                     month_forecast['Stock_COGS_Ratio'] = np.where(
@@ -431,12 +431,19 @@ class BudgetForecaster:
         for year in years:
             year_data = data[data['Year'] == year].copy()
             
-            # Yıllık Stok/SMM hesapla - DOĞRU FORMÜL: Stok / (SMM/52)
-            total_stock = year_data['Stock'].mean()
-            total_cogs = year_data['COGS'].sum()
+            # Yıllık Stok/SMM hesapla
+            # Önce her ay için toplam stok ve SMM hesapla
+            monthly_totals = year_data.groupby('Month').agg({
+                'Stock': 'sum',
+                'COGS': 'sum'
+            }).reset_index()
             
-            # Stok / (SMM/52) = Haftalık SMM'ye göre stok
-            stock_cogs_weekly = (total_stock / (total_cogs / 52)) if total_cogs > 0 else 0
+            # Ortalama aylık stok ve toplam yıllık SMM
+            avg_monthly_stock = monthly_totals['Stock'].mean()
+            total_yearly_cogs = monthly_totals['COGS'].sum()
+            
+            # Haftalık oran: Ort. Aylık Stok / (Toplam Yıllık SMM / 52)
+            stock_cogs_weekly = (avg_monthly_stock / (total_yearly_cogs / 52)) if total_yearly_cogs > 0 else 0
             
             summary[year] = {
                 'Total_Sales': year_data['Sales'].sum(),
