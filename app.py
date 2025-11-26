@@ -230,20 +230,6 @@ else:
 # 2. HESAPLA BUTONUNDA PARAMETREYE EKLE (Satır ~380)
 # ==========================================
 
-# Tahmin yap
-full_data = forecaster.get_full_data_with_forecast(
-    growth_param=general_growth,
-    margin_improvement=margin_improvement,
-    stock_change_pct=stock_change_pct,
-    monthly_growth_targets=monthly_growth_targets,
-    maingroup_growth_targets=maingroup_growth_targets,
-    lessons_learned=lessons_learned_dict,
-    inflation_adjustment=inflation_adjustment  # ← BURAYI EKLE
-)
-
-
-
-
 # Session state - veri tabloları
 if 'monthly_targets' not in st.session_state:
     st.session_state.monthly_targets = pd.DataFrame({
@@ -481,7 +467,8 @@ with main_tabs[0]:
                     stock_change_pct=stock_change_pct,
                     monthly_growth_targets=monthly_growth_targets,
                     maingroup_growth_targets=maingroup_growth_targets,
-                    lessons_learned=lessons_learned_dict
+                    lessons_learned=lessons_learned_dict,
+                    inflation_adjustment=inflation_adjustment  # ← BU SATIR VARSA TAMAM
                 )
                 
                 summary = forecaster.get_summary_stats(full_data)
