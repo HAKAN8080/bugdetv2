@@ -165,7 +165,8 @@ class BudgetForecaster:
     
     def forecast_future_months(self, num_months=15, growth_param=0.1, margin_improvement=0.0, 
                               stock_change_pct=0.0, monthly_growth_targets=None, 
-                              maingroup_growth_targets=None, lessons_learned=None):
+                              maingroup_growth_targets=None, lessons_learned=None,
+                              inflation_adjustment=1.0):
         """
         Son gerçekleşen aydan itibaren belirtilen sayıda ay tahmin et
         
@@ -178,6 +179,7 @@ class BudgetForecaster:
         monthly_growth_targets: Dict {month: growth_rate} - Her ay için özel hedef
         maingroup_growth_targets: Dict {maingroup: growth_rate} - Her ana grup için özel hedef
         lessons_learned: Dict {(maingroup, month): score} - Alınan dersler (-10 ile +10 arası)
+        inflation_adjustment: Enflasyon düzeltme faktörü (örn: 25/35 = 0.71)
         """
         
         # Mevsimsellik hesapla
@@ -189,10 +191,22 @@ class BudgetForecaster:
             (self.data['Month'] == self.last_actual_month)
         ].copy()
         
-        # Organik trend (2024->2025)
-        total_2024 = self.data[self.data['Year'] == 2024]['Sales'].sum()
-        total_2025 = self.data[self.data['Year'] == 2025]['Sales'].sum()
-        organic_growth = (total_2025 - total_2024) / total_2024 if total_2024 > 0 else 0
+        # Organik trend (2024->2025) - SADECE AYNI AYLARI KARŞILAŞTIR
+        # Son gerçekleşen aya kadar olan ayları al
+        common_months_2024 = self.data[
+            (self.data['Year'] == 2024) & 
+            (self.data['Month'] <= self.last_actual_month)
+        ]['Sales'].sum()
+        
+        common_months_2025 = self.data[
+            (self.data['Year'] == 2025) & 
+            (self.data['Month'] <= self.last_actual_month)
+        ]['Sales'].sum()
+        
+        organic_growth_raw = (common_months_2025 - common_months_2024) / common_months_2024 if common_months_2024 > 0 else 0
+        
+        # ENFLASYON DÜZELTMESİ UYGULA
+        organic_growth = organic_growth_raw * inflation_adjustment
         
         # ========================================
         # *** STOK SAĞLIK FAKTÖRLERİNİ HESAPLA ***
@@ -391,7 +405,8 @@ class BudgetForecaster:
     
     def get_full_data_with_forecast(self, num_months=15, growth_param=0.1, margin_improvement=0.0, 
                                     stock_change_pct=0.0, monthly_growth_targets=None, 
-                                    maingroup_growth_targets=None, lessons_learned=None):
+                                    maingroup_growth_targets=None, lessons_learned=None,
+                                    inflation_adjustment=1.0):
         """Gerçekleşen veri + gelecek tahminlerini birleştir"""
         
         # Gelecek tahminini yap
@@ -402,7 +417,8 @@ class BudgetForecaster:
             stock_change_pct=stock_change_pct,
             monthly_growth_targets=monthly_growth_targets,
             maingroup_growth_targets=maingroup_growth_targets,
-            lessons_learned=lessons_learned
+            lessons_learned=lessons_learned,
+            inflation_adjustment=inflation_adjustment
         )
         
         # Gerçekleşen veriyi düzenle - TAHMİN EDİLEN AYLARI ÇIKAR
