@@ -166,7 +166,7 @@ class BudgetForecaster:
     def forecast_future_months(self, num_months=15, growth_param=0.1, margin_improvement=0.0, 
                               stock_change_pct=0.0, monthly_growth_targets=None, 
                               maingroup_growth_targets=None, lessons_learned=None,
-                              inflation_adjustment=1.0):
+                              inflation_adjustment=1.0, organic_multiplier=0.5):
         """
         Son gerçekleşen aydan itibaren belirtilen sayıda ay tahmin et
         
@@ -180,6 +180,7 @@ class BudgetForecaster:
         maingroup_growth_targets: Dict {maingroup: growth_rate} - Her ana grup için özel hedef
         lessons_learned: Dict {(maingroup, month): score} - Alınan dersler (-10 ile +10 arası)
         inflation_adjustment: Enflasyon düzeltme faktörü (örn: 25/35 = 0.71)
+        organic_multiplier: Organik büyüme çarpanı (0.0=Çekimser, 0.5=Normal, 1.0=İyimser)
         """
         
         # Mevsimsellik hesapla
@@ -207,6 +208,10 @@ class BudgetForecaster:
         
         # ENFLASYON DÜZELTMESİ UYGULA
         organic_growth = organic_growth_raw * inflation_adjustment
+        
+        # BÜTÇE VERSİYONU ÇARPANI UYGULA
+        # 0.0 = Çekimser (organik yok), 0.5 = Normal (yarım), 1.0 = İyimser (tam)
+        organic_growth = organic_growth * organic_multiplier
         
         # ========================================
         # *** STOK SAĞLIK FAKTÖRLERİNİ HESAPLA ***
@@ -406,7 +411,7 @@ class BudgetForecaster:
     def get_full_data_with_forecast(self, num_months=15, growth_param=0.1, margin_improvement=0.0, 
                                     stock_change_pct=0.0, monthly_growth_targets=None, 
                                     maingroup_growth_targets=None, lessons_learned=None,
-                                    inflation_adjustment=1.0):
+                                    inflation_adjustment=1.0, organic_multiplier=0.5):
         """Gerçekleşen veri + gelecek tahminlerini birleştir"""
         
         # Gelecek tahminini yap
@@ -418,7 +423,8 @@ class BudgetForecaster:
             monthly_growth_targets=monthly_growth_targets,
             maingroup_growth_targets=maingroup_growth_targets,
             lessons_learned=lessons_learned,
-            inflation_adjustment=inflation_adjustment
+            inflation_adjustment=inflation_adjustment,
+            organic_multiplier=organic_multiplier
         )
         
         # Gerçekleşen veriyi düzenle - TAHMİN EDİLEN AYLARI ÇIKAR
