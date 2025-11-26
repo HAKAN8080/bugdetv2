@@ -205,25 +205,6 @@ full_data = forecaster.get_full_data_with_forecast(
 )
 
 
-# ==========================================
-# 3. METODOLOJİ AÇIKLAMASI (Satır ~100, "Nasıl Hesaplar?" expander içine)
-# ==========================================
-
-# Mevcut içeriğe eklenecek yeni bölüm:
-
-        #### 6️⃣ **Enflasyon Düzeltmesi**
-        Organik büyüme trendi enflasyon değişikliğine göre düzeltilir. Enflasyon düşüyorsa, 
-        geçmiş büyüme oranı da aşağı çekilir; enflasyon artıyorsa yukarı taşınır.
-        
-        **Formül:** Düzeltilmiş Organik = Ham Organik × (Yeni Enf / Eski Enf)
-        
-        **Örnek:** 2024→2025 gerçek büyüme %24, enflasyon %35. 2026 enflasyon beklentisi %25 ise:
-        - Düzeltme faktörü: 25 / 35 = 0.71
-        - Düzeltilmiş organik: %24 × 0.71 = %17.1
-        - Formülde etki: %17.1 × 0.3 = %5.1 (yerine %24 × 0.3 = %7.2)
-        
-        Bu yaklaşım, enflasyonist ortamlarda aşırı iyimser tahminleri önler ve makroekonomik 
-        gerçeklere dayalı, daha sağlam bütçeler oluşturur.
 
 
 # Session state - veri tabloları
