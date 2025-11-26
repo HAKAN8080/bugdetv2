@@ -226,6 +226,56 @@ else:
     st.sidebar.success(f"➡️ Enflasyon sabit: Düzeltme yok")
 
 
+# ============================================
+# APP.PY - BÜTÇE VERSİYONU EKLEMESİ
+# ============================================
+
+# ==========================================
+# 1. SIDEBAR'A EKLE (Enflasyon parametrelerinden SONRA, Satır ~220)
+# ==========================================
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("🎯 Bütçe Versiyonu")
+
+budget_version = st.sidebar.select_slider(
+    "Senaryo Seçin",
+    options=["🔴 Çekimser", "🟡 Normal", "🟢 İyimser"],
+    value="🟡 Normal",
+    help="Organik büyüme trendi nasıl kullanılsın?",
+    key="budget_version_slider"
+)
+
+# Açıklama ve çarpan belirleme
+if budget_version == "🔴 Çekimser":
+    st.sidebar.warning("""
+    **Çekimser Senaryo**
+    - Organik büyüme: ×0 (Kullanılmaz)
+    - Sadece parametrelerinize güvenilir
+    - En konservatif tahmin
+    """)
+    organic_multiplier = 0.0
+    
+elif budget_version == "🟡 Normal":
+    st.sidebar.info("""
+    **Normal Senaryo** *(Önerilen)*
+    - Organik büyüme: ×0.5 (Yarım)
+    - Dengeli yaklaşım
+    - Gerçekçi tahmin
+    """)
+    organic_multiplier = 0.5
+    
+else:  # İyimser
+    st.sidebar.success("""
+    **İyimser Senaryo**
+    - Organik büyüme: ×1.0 (Tam)
+    - Geçmiş trende tam güven
+    - Agresif hedefler
+    """)
+    organic_multiplier = 1.0
+
+
+
+
 # ==========================================
 # 2. HESAPLA BUTONUNDA PARAMETREYE EKLE (Satır ~380)
 # ==========================================
@@ -468,7 +518,8 @@ with main_tabs[0]:
                     monthly_growth_targets=monthly_growth_targets,
                     maingroup_growth_targets=maingroup_growth_targets,
                     lessons_learned=lessons_learned_dict,
-                    inflation_adjustment=inflation_adjustment  # ← BU SATIR VARSA TAMAM
+                    inflation_adjustment=inflation_adjustment,  
+                    organic_multiplier=organic_multiplier
                 )
                 
                 summary = forecaster.get_summary_stats(full_data)
