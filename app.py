@@ -156,7 +156,8 @@ with col_inf1:
         max_value=100.0,
         value=35.0,
         step=1.0,
-        help="2024'ten 2025'e gerçekleşen ortalama enflasyon"
+        help="2024'ten 2025'e gerçekleşen ortalama enflasyon",
+        key="inflation_past"  # ← EKLE
     )
 
 with col_inf2:
@@ -166,7 +167,8 @@ with col_inf2:
         max_value=100.0,
         value=25.0,
         step=1.0,
-        help="2025'ten 2026'ya beklenen ortalama enflasyon"
+        help="2025'ten 2026'ya beklenen ortalama enflasyon",
+        key="inflation_future"  # ← EKLE
     )
 
 # Düzeltme faktörünü hesapla
@@ -179,7 +181,6 @@ elif inflation_adjustment > 1.0:
     st.sidebar.warning(f"📈 Enflasyon artıyor: Organik büyüme ×{inflation_adjustment:.2f} düzeltilecek")
 else:
     st.sidebar.success(f"➡️ Enflasyon sabit: Düzeltme yok")
-
 # ============================================
 # APP.PY - ENFLASYON EKLEMELER
 # ============================================
