@@ -443,21 +443,27 @@ with main_tabs[1]:
             )
         
         with col4:
-            # Stok metrikleri - artık sadece tutar bazlı
-            stock_2026 = summary[2026]['Avg_Stock']
-            stock_2025 = summary[2025]['Avg_Stock']
-            stock_change = ((stock_2026 - stock_2025) / stock_2025 * 100) if stock_2025 > 0 else 0
+            # Stok/SMM Haftalık Oranı
+            stock_weekly_2026 = summary[2026]['Avg_Stock_COGS_Weekly']
+            stock_weekly_2025 = summary[2025]['Avg_Stock_COGS_Weekly']
             
             st.metric(
-                label="2026 Ort. Stok",
-                value=f"₺{stock_2026:,.0f}",
-                delta=f"%{stock_change:+.1f} vs 2025"
+                label="2026 Stok/SMM",
+                value=f"{stock_weekly_2026:.1f} hafta",
+                delta=f"{stock_weekly_2026 - stock_weekly_2025:+.1f} hafta",
+                delta_color="inverse"  # Düşük = iyi (yeşil), yüksek = kötü (kırmızı)
             )
             
-            # Haftalık oran da göster
-            stock_weekly_2026 = summary[2026]['Avg_Stock_COGS_Weekly']
-            st.caption(f"Stok/SMM: {stock_weekly_2026:.2f} hafta")
-        
+            st.caption(f"2025: {stock_weekly_2025:.1f} hafta")
+        ```
+
+## 🎯 Beklenen Görünüm:
+```
+2026 Stok/SMM
+20.4 hafta
+↓ -2.4 hafta (Yeşil ok)
+
+2025: 22.8 hafta
         # İKİNCİ SATIR - Tahmin Kalite Metrikleri
         st.markdown("### 🎯 Tahmin Güvenilirlik Göstergeleri")
         
