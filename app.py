@@ -241,7 +241,7 @@ budget_version = st.sidebar.select_slider(
     "Senaryo Seçin",
     options=["🔴 Çekimser", "🟡 Normal", "🟢 İyimser"],
     value="🟡 Normal",
-    help="Organik büyüme trendi nasıl kullanılsın?",
+    help="Bütçe senaryosu seçiniz.",
     key="budget_version_slider"
 )
 
@@ -249,8 +249,6 @@ budget_version = st.sidebar.select_slider(
 if budget_version == "🔴 Çekimser":
     st.sidebar.warning("""
     **Çekimser Senaryo**
-    - Organik büyüme: ×0 (Kullanılmaz)
-    - Sadece parametrelerinize güvenilir
     - En konservatif tahmin
     """)
     organic_multiplier = 0.0
@@ -258,7 +256,6 @@ if budget_version == "🔴 Çekimser":
 elif budget_version == "🟡 Normal":
     st.sidebar.info("""
     **Normal Senaryo** *(Önerilen)*
-    - Organik büyüme: ×0.5 (Yarım)
     - Dengeli yaklaşım
     - Gerçekçi tahmin
     """)
@@ -267,7 +264,6 @@ elif budget_version == "🟡 Normal":
 else:  # İyimser
     st.sidebar.success("""
     **İyimser Senaryo**
-    - Organik büyüme: ×1.0 (Tam)
     - Geçmiş trende tam güven
     - Agresif hedefler
     """)
