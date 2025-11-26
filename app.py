@@ -456,14 +456,6 @@ with main_tabs[1]:
             
             st.caption(f"2025: {stock_weekly_2025:.1f} hafta")
         ```
-
-## 🎯 Beklenen Görünüm:
-```
-2026 Stok/SMM
-20.4 hafta
-↓ -2.4 hafta (Yeşil ok)
-
-2025: 22.8 hafta
         # İKİNCİ SATIR - Tahmin Kalite Metrikleri
         st.markdown("### 🎯 Tahmin Güvenilirlik Göstergeleri")
         
