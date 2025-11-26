@@ -144,6 +144,42 @@ stock_change_pct = st.sidebar.slider(
     help="2025'e göre stok tutarında % artış veya azalış. Her grup kendi stok/SMM oranını korur."
 ) / 100
 
+st.sidebar.markdown("---")
+st.sidebar.subheader("📉 Enflasyon Düzeltmesi")
+
+col_inf1, col_inf2 = st.sidebar.columns(2)
+
+with col_inf1:
+    inflation_past = st.number_input(
+        "2024→2025 Enf. (%)",
+        min_value=0.0,
+        max_value=100.0,
+        value=35.0,
+        step=1.0,
+        help="2024'ten 2025'e gerçekleşen ortalama enflasyon"
+    )
+
+with col_inf2:
+    inflation_future = st.number_input(
+        "2025→2026 Enf. (%)",
+        min_value=0.0,
+        max_value=100.0,
+        value=25.0,
+        step=1.0,
+        help="2025'ten 2026'ya beklenen ortalama enflasyon"
+    )
+
+# Düzeltme faktörünü hesapla
+inflation_adjustment = inflation_future / inflation_past if inflation_past > 0 else 1.0
+
+# Bilgilendirme
+if inflation_adjustment < 1.0:
+    st.sidebar.info(f"📉 Enflasyon düşüyor: Organik büyüme ×{inflation_adjustment:.2f} düzeltilecek")
+elif inflation_adjustment > 1.0:
+    st.sidebar.warning(f"📈 Enflasyon artıyor: Organik büyüme ×{inflation_adjustment:.2f} düzeltilecek")
+else:
+    st.sidebar.success(f"➡️ Enflasyon sabit: Düzeltme yok")
+
 # ============================================
 # APP.PY - ENFLASYON EKLEMELER
 # ============================================
