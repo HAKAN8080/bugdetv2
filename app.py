@@ -455,7 +455,7 @@ with main_tabs[1]:
             )
             
             st.caption(f"2025: {stock_weekly_2025:.1f} hafta")
-        ```
+        
         # İKİNCİ SATIR - Tahmin Kalite Metrikleri
         st.markdown("### 🎯 Tahmin Güvenilirlik Göstergeleri")
         
