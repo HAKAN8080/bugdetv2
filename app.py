@@ -144,6 +144,88 @@ stock_change_pct = st.sidebar.slider(
     help="2025'e göre stok tutarında % artış veya azalış. Her grup kendi stok/SMM oranını korur."
 ) / 100
 
+# ============================================
+# APP.PY - ENFLASYON EKLEMELER
+# ============================================
+
+# ==========================================
+# 1. SIDEBAR'A EKLE (Satır ~145, stok parametresinden sonra)
+# ==========================================
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("📉 Enflasyon Düzeltmesi")
+
+col_inf1, col_inf2 = st.sidebar.columns(2)
+
+with col_inf1:
+    inflation_past = st.number_input(
+        "2024→2025 Enf. (%)",
+        min_value=0.0,
+        max_value=100.0,
+        value=35.0,
+        step=1.0,
+        help="2024'ten 2025'e gerçekleşen ortalama enflasyon"
+    )
+
+with col_inf2:
+    inflation_future = st.number_input(
+        "2025→2026 Enf. (%)",
+        min_value=0.0,
+        max_value=100.0,
+        value=25.0,
+        step=1.0,
+        help="2025'ten 2026'ya beklenen ortalama enflasyon"
+    )
+
+# Düzeltme faktörünü hesapla
+inflation_adjustment = inflation_future / inflation_past if inflation_past > 0 else 1.0
+
+# Bilgilendirme
+if inflation_adjustment < 1.0:
+    st.sidebar.info(f"📉 Enflasyon düşüyor: Organik büyüme ×{inflation_adjustment:.2f} düzeltilecek")
+elif inflation_adjustment > 1.0:
+    st.sidebar.warning(f"📈 Enflasyon artıyor: Organik büyüme ×{inflation_adjustment:.2f} düzeltilecek")
+else:
+    st.sidebar.success(f"➡️ Enflasyon sabit: Düzeltme yok")
+
+
+# ==========================================
+# 2. HESAPLA BUTONUNDA PARAMETREYE EKLE (Satır ~380)
+# ==========================================
+
+# Tahmin yap
+full_data = forecaster.get_full_data_with_forecast(
+    growth_param=general_growth,
+    margin_improvement=margin_improvement,
+    stock_change_pct=stock_change_pct,
+    monthly_growth_targets=monthly_growth_targets,
+    maingroup_growth_targets=maingroup_growth_targets,
+    lessons_learned=lessons_learned_dict,
+    inflation_adjustment=inflation_adjustment  # ← BURAYI EKLE
+)
+
+
+# ==========================================
+# 3. METODOLOJİ AÇIKLAMASI (Satır ~100, "Nasıl Hesaplar?" expander içine)
+# ==========================================
+
+# Mevcut içeriğe eklenecek yeni bölüm:
+
+        #### 6️⃣ **Enflasyon Düzeltmesi**
+        Organik büyüme trendi enflasyon değişikliğine göre düzeltilir. Enflasyon düşüyorsa, 
+        geçmiş büyüme oranı da aşağı çekilir; enflasyon artıyorsa yukarı taşınır.
+        
+        **Formül:** Düzeltilmiş Organik = Ham Organik × (Yeni Enf / Eski Enf)
+        
+        **Örnek:** 2024→2025 gerçek büyüme %24, enflasyon %35. 2026 enflasyon beklentisi %25 ise:
+        - Düzeltme faktörü: 25 / 35 = 0.71
+        - Düzeltilmiş organik: %24 × 0.71 = %17.1
+        - Formülde etki: %17.1 × 0.3 = %5.1 (yerine %24 × 0.3 = %7.2)
+        
+        Bu yaklaşım, enflasyonist ortamlarda aşırı iyimser tahminleri önler ve makroekonomik 
+        gerçeklere dayalı, daha sağlam bütçeler oluşturur.
+
+
 # Session state - veri tabloları
 if 'monthly_targets' not in st.session_state:
     st.session_state.monthly_targets = pd.DataFrame({
