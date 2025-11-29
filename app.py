@@ -2,11 +2,22 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
+from plotly.subplots import make_subplots
 from budget_forecast import BudgetForecaster
 import numpy as np
 import tempfile
 import os
+import locale
 
+# Türkçe locale ayarla
+try:
+    locale.setlocale(locale.LC_ALL, 'tr_TR.UTF-8')
+except:
+    try:
+        locale.setlocale(locale.LC_ALL, 'Turkish_Turkey.1254')
+    except:
+        pass
+        
 # Sayfa konfigürasyonu
 st.set_page_config(
     page_title="2026 Satış Bütçe Tahmini",
@@ -30,8 +41,33 @@ st.markdown("""
 # Header
 st.markdown('<p class="main-header">📊 2026 Satış Bütçe Tahmini Sistemi</p>', unsafe_allow_html=True)
 
+# Format fonksiyonları
+def format_number(num, decimals=0):
+    """Sayıyı Türkçe formatla"""
+    if pd.isna(num) or num == 0:
+        return "-"
+    if decimals == 0:
+        return f"{num:,.0f}".replace(",", ".")
+    else:
+        formatted = f"{num:,.{decimals}f}"
+        formatted = formatted.replace(",", "TEMP").replace(".", ",").replace("TEMP", ".")
+        return formatted
+
+def format_currency(num):
+    """Para formatla: ₺1.234.567"""
+    if pd.isna(num) or num == 0:
+        return "-"
+    return f"₺{format_number(num, 0)}"
+
+def format_percent(num, decimals=1):
+    """Yüzde formatla: %12,5"""
+    if pd.isna(num):
+        return "-"
+    return f"%{format_number(num, decimals)}"
+
 # Sidebar - Sadeleştirilmiş
 st.sidebar.header("⚙️ Temel Parametreler")
+
 
 # 1. FILE UPLOAD
 st.sidebar.subheader("📂 Veri Yükleme")
@@ -71,6 +107,10 @@ if forecaster is None:
            - Ay bazında büyüme hedefleri
            - Ana grup bazında büyüme hedefleri
            - Alınan dersler (opsiyonel)
+           - Birim fiyat değişimi
+           - Enflasyon değişimi
+           - Marj değişimi
+           - Stok değişimi
         3. **"📊 Hesapla"** butonuna basın
         4. **"Tahmin Sonuçları"** sekmesinde sonuçları görün
         5. **"Detay Veriler"** sekmesinden CSV export yapabilirsiniz
@@ -81,7 +121,7 @@ if forecaster is None:
         st.markdown("""
         ### 🎯 Gelişmiş Tahmin Motoru
         
-        Sistemimiz, işletmenizin geçmiş performansını analiz ederek geleceği tahmin eder.
+        Thorius R4U sistemi, işletmenizin geçmiş performansını analiz ederek geleceği tahmin eder, bunu yaparken derin öğrenme tekniklerini kullanır.
         
         #### 1️⃣ **Mevsimsellik Analizi**
         Her ürün grubunun aylara göre satış paternleri tespit edilir. Örneğin Aralık ayı 
@@ -111,7 +151,7 @@ if forecaster is None:
         ---
         
         💡 **Not:** Bu metodoloji, yüzlerce perakende işletmesinin veri analitiği deneyiminden 
-        elde edilmiş best practice'leri içerir. Tahminlerimiz %15-25 sapma oranı ile sektör 
+        elde edilmiş best practice'leri içerir. Tahminlerimiz düşük sapma oranı ile sektör 
         ortalamasının üzerinde doğruluk sağlar.
         """)
     
@@ -181,50 +221,6 @@ elif inflation_adjustment > 1.0:
     st.sidebar.warning(f"📈 Enflasyon artıyor: Organik büyüme ×{inflation_adjustment:.2f} düzeltilecek")
 else:
     st.sidebar.success(f"➡️ Enflasyon sabit: Düzeltme yok")
-# ============================================
-# APP.PY - ENFLASYON EKLEMELER
-# ============================================
-
-# ==========================================
-# 1. SIDEBAR'A EKLE (Satır ~145, stok parametresinden sonra)
-# ==========================================
-
-st.sidebar.markdown("---")
-st.sidebar.subheader("📉 Enflasyon Düzeltmesi")
-
-col_inf1, col_inf2 = st.sidebar.columns(2)
-
-with col_inf1:
-    inflation_past = st.number_input(
-        "2024→2025 Enf. (%)",
-        min_value=0.0,
-        max_value=100.0,
-        value=35.0,
-        step=1.0,
-        help="2024'ten 2025'e gerçekleşen ortalama enflasyon"
-    )
-
-with col_inf2:
-    inflation_future = st.number_input(
-        "2025→2026 Enf. (%)",
-        min_value=0.0,
-        max_value=100.0,
-        value=25.0,
-        step=1.0,
-        help="2025'ten 2026'ya beklenen ortalama enflasyon"
-    )
-
-# Düzeltme faktörünü hesapla
-inflation_adjustment = inflation_future / inflation_past if inflation_past > 0 else 1.0
-
-# Bilgilendirme
-if inflation_adjustment < 1.0:
-    st.sidebar.info(f"📉 Enflasyon düşüyor: Organik büyüme ×{inflation_adjustment:.2f} düzeltilecek")
-elif inflation_adjustment > 1.0:
-    st.sidebar.warning(f"📈 Enflasyon artıyor: Organik büyüme ×{inflation_adjustment:.2f} düzeltilecek")
-else:
-    st.sidebar.success(f"➡️ Enflasyon sabit: Düzeltme yok")
-
 
 # ============================================
 # APP.PY - BÜTÇE VERSİYONU EKLEMESİ
@@ -282,13 +278,13 @@ if 'monthly_targets' not in st.session_state:
         'Ay': list(range(1, 13)),
         'Ay Adı': ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
                    'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'],
-        'Hedef (%)': [15.0] * 12
+        'Hedef (%)': [20.0] * 12
     })
 
 if 'maingroup_targets' not in st.session_state:
     st.session_state.maingroup_targets = pd.DataFrame({
         'Ana Grup': main_groups,
-        'Hedef (%)': [15.0] * len(main_groups)
+        'Hedef (%)': [20.0] * len(main_groups)
     })
 
 if 'lessons_learned' not in st.session_state:
@@ -301,11 +297,11 @@ if 'lessons_learned' not in st.session_state:
 if 'refresh_counter' not in st.session_state:
     st.session_state.refresh_counter = 0
 
-if 'lessons_learned' not in st.session_state:
-    lessons_data = {'Ana Grup': main_groups}
+if 'price_changes' not in st.session_state:  # ← YENİ EKLE
+    price_data = {'Ana Grup': main_groups}
     for month in range(1, 13):
-        lessons_data[str(month)] = [0] * len(main_groups)
-    st.session_state.lessons_learned = pd.DataFrame(lessons_data)
+        price_data[str(month)] = [inflation_future] * len(main_groups)
+    st.session_state.price_changes = pd.DataFrame(price_data)
 
 # Hesaplanmış tahmin sonuçları
 if 'forecast_result' not in st.session_state:
@@ -319,7 +315,7 @@ with main_tabs[0]:
     st.markdown("## ⚙️ Tahmin Parametrelerini Ayarlayın")
     st.caption("💡 Parametreleri düzenleyin ve '📊 Hesapla' butonuna basın.")
     
-    param_tabs = st.tabs(["📅 Ay Bazında Hedefler", "🏪 Ana Grup Hedefleri", "📚 Alınan Dersler"])
+    param_tabs = st.tabs(["📅 Ay Bazında Hedefler", "🏪 Ana Grup Hedefleri", "📚 Alınan Dersler", "💵 Birim Fiyat Değişimi"])
     
     # --- AY BAZINDA HEDEFLER ---
     with param_tabs[0]:
@@ -470,6 +466,74 @@ with main_tabs[0]:
                 st.info("**0 puan** → Değişiklik yok")
                 st.caption("Normal seyir, özel bir durum olmadı")
     
+    # --- BİRİM FİYAT DEĞİŞİMİ ---
+    with param_tabs[3]:
+        st.markdown("### 💵 Birim Fiyat Değişimi (2025→2026)")
+        st.caption(f"Ana grup ve ay bazında fiyat artış/azalış oranları. Default: %{inflation_future:.0f} (Enflasyon)")
+        
+        month_names = {
+            1: 'O', 2: 'Ş', 3: 'M', 4: 'N',
+            5: 'M', 6: 'H', 7: 'T', 8: 'A',
+            9: 'E', 10: 'E', 11: 'K', 12: 'A'
+        }
+        
+        month_full_names = {
+            1: 'Ocak', 2: 'Şubat', 3: 'Mart', 4: 'Nisan',
+            5: 'Mayıs', 6: 'Haziran', 7: 'Temmuz', 8: 'Ağustos',
+            9: 'Eylül', 10: 'Ekim', 11: 'Kasım', 12: 'Aralık'
+        }
+        
+        column_config = {
+            'Ana Grup': st.column_config.TextColumn('Grup', disabled=True, width='small')
+        }
+        
+        for month in range(1, 13):
+            column_config[str(month)] = st.column_config.NumberColumn(
+                month_names[month],
+                help=f"{month_full_names[month]} - Fiyat artış %",
+                min_value=-50.0,
+                max_value=100.0,
+                step=1.0,
+                format="%.1f",
+                width='small'
+            )
+        
+        num_price_rows = len(st.session_state.price_changes)
+        price_height = min(num_price_rows * 35 + 50, 800)
+        
+        edited_prices = st.data_editor(
+            st.session_state.price_changes,
+            use_container_width=True,
+            hide_index=True,
+            height=price_height,
+            column_config=column_config,
+            key='price_editor'
+        )
+        
+        col_a, col_b, col_c = st.columns(3)
+        
+        all_prices = []
+        for month in range(1, 13):
+            all_prices.extend(edited_prices[str(month)].tolist())
+        
+        avg_price = np.mean(all_prices)
+        min_price = np.min(all_prices)
+        max_price = np.max(all_prices)
+        
+        col_a.metric("📊 Ortalama Artış", f"%{avg_price:.1f}")
+        col_b.metric("📉 Minimum", f"%{min_price:.1f}")
+        col_c.metric("📈 Maximum", f"%{max_price:.1f}")
+        
+        with st.expander("💡 Fiyat Değişimi Nasıl Kullanılır?"):
+            st.markdown(f"""
+            **Birim Fiyat Tahmini:**
+            - 2026 Fiyat = 2025 Fiyat × (1 + Fiyat Artış %)
+            - Default artış: **%{inflation_future:.0f}** (Enflasyon)
+            
+            **Adet Hesabı:**
+            - Adet = Tahmin Edilen Ciro / Birim Fiyat
+            """)
+    
     # --- BÜYÜK HESAPLA BUTONU ---
     st.markdown("---")
     st.markdown("### 🚀 Tahmini Hesapla")
@@ -483,6 +547,8 @@ with main_tabs[0]:
                 st.session_state.monthly_targets = edited_monthly
                 st.session_state.maingroup_targets = edited_maingroup
                 st.session_state.lessons_learned = edited_lessons
+                st.session_state.price_changes = edited_prices
+
                 
                 # Parametreleri hazırla
                 monthly_growth_targets = {}
@@ -500,6 +566,13 @@ with main_tabs[0]:
                     for month in range(1, 13):
                         lessons_learned_dict[(main_group, month)] = row[str(month)]
                 
+                # Fiyat değişimlerini dict formatına çevir
+                price_change_dict = {}
+                for _, row in st.session_state.price_changes.iterrows():  # ✅ Session state'den oku
+                    main_group = row['Ana Grup']
+                    for month in range(1, 13):
+                        price_change_dict[(main_group, month)] = row[str(month)] / 100
+                
                 # Genel büyüme parametresi
                 general_growth = (
                     edited_monthly['Hedef (%)'].mean() +
@@ -515,7 +588,9 @@ with main_tabs[0]:
                     maingroup_growth_targets=maingroup_growth_targets,
                     lessons_learned=lessons_learned_dict,
                     inflation_adjustment=inflation_adjustment,  
-                    organic_multiplier=organic_multiplier
+                    organic_multiplier=organic_multiplier,
+                    price_change_matrix=price_change_dict,
+                    inflation_rate=inflation_future / 100
                 )
                 
                 summary = forecaster.get_summary_stats(full_data)
@@ -529,6 +604,7 @@ with main_tabs[0]:
                 }
                 
                 st.success("✅ Tahmin başarıyla hesaplandı! 'Tahmin Sonuçları' sekmesine geçin.")                
+
 # ==================== TAHMİN SONUÇLARI TAB ====================
 with main_tabs[1]:
     if st.session_state.forecast_result is None:
@@ -550,10 +626,10 @@ with main_tabs[1]:
             
             st.metric(
                 label="2026 Toplam Satış",
-                value=f"₺{sales_2026:,.0f}",
+                value=format_currency(sales_2026),
                 delta=f"%{sales_growth:.1f} vs 2025"
             )
-        
+            
         with col2:
             margin_2026 = summary[2026]['Avg_GrossMargin%']
             margin_2025 = summary[2025]['Avg_GrossMargin%']
@@ -572,10 +648,10 @@ with main_tabs[1]:
             
             st.metric(
                 label="2026 Brüt Kar",
-                value=f"₺{gp_2026:,.0f}",
+                value=format_currency(gp_2026),
                 delta=f"%{gp_growth:.1f} vs 2025"
             )
-        
+            
         with col4:
             # Stok/SMM Haftalık Oranı
             stock_weekly_2026 = summary[2026]['Avg_Stock_COGS_Weekly']
@@ -713,6 +789,94 @@ with main_tabs[1]:
             )
             
             st.plotly_chart(fig, use_container_width=True)
+            
+            # *** YENİ GRAFİK: ADET VE CİRO DEĞİŞİMİ ***
+            st.subheader("2026 vs 2025: Aylık Adet ve Ciro Değişimi")
+            
+            # 2025 ve 2026 aylık toplamları
+            monthly_2025 = full_data[full_data['Year'] == 2025].groupby('Month').agg({
+                'Quantity': 'sum',
+                'Sales': 'sum'
+            }).reset_index()
+            
+            monthly_2026 = full_data[full_data['Year'] == 2026].groupby('Month').agg({
+                'Quantity': 'sum',
+                'Sales': 'sum'
+            }).reset_index()
+            
+            # Merge
+            change_data = monthly_2025.merge(monthly_2026, on='Month', suffixes=('_2025', '_2026'))
+            
+            # Değişim yüzdeleri
+            change_data['Quantity_Change%'] = ((change_data['Quantity_2026'] - change_data['Quantity_2025']) / 
+                                               change_data['Quantity_2025'] * 100)
+            change_data['Sales_Change%'] = ((change_data['Sales_2026'] - change_data['Sales_2025']) / 
+                                           change_data['Sales_2025'] * 100)
+            
+            # İki Y-eksenli grafik
+            fig_change = make_subplots(specs=[[{"secondary_y": True}]])
+            
+            # Adet değişimi (Bar)
+            fig_change.add_trace(
+                go.Bar(
+                    x=change_data['Month'],
+                    y=change_data['Quantity_Change%'],
+                    name='Adet Değişimi (%)',
+                    marker_color='lightblue',
+                    opacity=0.7
+                ),
+                secondary_y=False
+            )
+            
+            # Ciro değişimi (Line)
+            fig_change.add_trace(
+                go.Scatter(
+                    x=change_data['Month'],
+                    y=change_data['Sales_Change%'],
+                    name='Ciro Değişimi (%)',
+                    mode='lines+markers',
+                    line=dict(color='red', width=3),
+                    marker=dict(size=10)
+                ),
+                secondary_y=True
+            )
+            
+            # Layout
+            fig_change.update_xaxes(title_text="Ay")
+            fig_change.update_yaxes(title_text="Adet Değişimi (%)", secondary_y=False)
+            fig_change.update_yaxes(title_text="Ciro Değişimi (%)", secondary_y=True)
+            
+            fig_change.update_layout(
+                title="2026/2025 Aylık Karşılaştırma: Adet vs Ciro",
+                hovermode='x unified',
+                height=500,
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1
+                )
+            )
+            
+            st.plotly_chart(fig_change, use_container_width=True)
+            
+            # Açıklama metrikleri
+            col1, col2, col3 = st.columns(3)
+            
+            avg_qty_change = change_data['Quantity_Change%'].mean()
+            avg_sales_change = change_data['Sales_Change%'].mean()
+            price_impact = avg_sales_change - avg_qty_change
+            
+            with col1:
+                st.metric("Ort. Adet Değişimi", f"%{avg_qty_change:.1f}")
+            
+            with col2:
+                st.metric("Ort. Ciro Değişimi", f"%{avg_sales_change:.1f}")
+            
+            with col3:
+                st.metric("Fiyat Etkisi", f"%{price_impact:.1f}", 
+                         help="Ciro değişimi - Adet değişimi = Fiyat artışının etkisi")
             
             # Brüt Marj Trendi
             st.subheader("Aylık Brüt Marj % Trendi")
@@ -853,25 +1017,25 @@ with main_tabs[1]:
                 'Metrik': ['Toplam Satış (TRY)', 'Toplam Brüt Kar (TRY)', 
                           'Brüt Marj %', 'Ort. Stok (TRY)', 'Stok/SMM Oranı'],
                 '2024': [
-                    f"₺{summary[2024]['Total_Sales']:,.0f}",
-                    f"₺{summary[2024]['Total_GrossProfit']:,.0f}",
-                    f"%{summary[2024]['Avg_GrossMargin%']:.2f}",
-                    f"₺{summary[2024]['Avg_Stock']:,.0f}",
-                    f"{summary[2024]['Avg_Stock_COGS_Ratio']:.2f}"
+                    format_currency(summary[2024]['Total_Sales']),
+                    format_currency(summary[2024]['Total_GrossProfit']),
+                    format_percent(summary[2024]['Avg_GrossMargin%'], 2),
+                    format_currency(summary[2024]['Avg_Stock']),
+                    format_number(summary[2024]['Avg_Stock_COGS_Ratio'], 2)
                 ],
                 '2025': [
-                    f"₺{summary[2025]['Total_Sales']:,.0f}",
-                    f"₺{summary[2025]['Total_GrossProfit']:,.0f}",
-                    f"%{summary[2025]['Avg_GrossMargin%']:.2f}",
-                    f"₺{summary[2025]['Avg_Stock']:,.0f}",
-                    f"{summary[2025]['Avg_Stock_COGS_Ratio']:.2f}"
+                    format_currency(summary[2025]['Total_Sales']),
+                    format_currency(summary[2025]['Total_GrossProfit']),
+                    format_percent(summary[2025]['Avg_GrossMargin%'], 2),
+                    format_currency(summary[2025]['Avg_Stock']),
+                    format_number(summary[2025]['Avg_Stock_COGS_Ratio'], 2)
                 ],
                 '2026 (Tahmin)': [
-                    f"₺{summary[2026]['Total_Sales']:,.0f}",
-                    f"₺{summary[2026]['Total_GrossProfit']:,.0f}",
-                    f"%{summary[2026]['Avg_GrossMargin%']:.2f}",
-                    f"₺{summary[2026]['Avg_Stock']:,.0f}",
-                    f"{summary[2026]['Avg_Stock_COGS_Ratio']:.2f}"
+                    format_currency(summary[2026]['Total_Sales']),
+                    format_currency(summary[2026]['Total_GrossProfit']),
+                    format_percent(summary[2026]['Avg_GrossMargin%'], 2),
+                    format_currency(summary[2026]['Avg_Stock']),
+                    format_number(summary[2026]['Avg_Stock_COGS_Ratio'], 2)
                 ]
             })
             
@@ -896,31 +1060,38 @@ with main_tabs[2]:
                          7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31}
         days = days_in_month[selected_month]
         
-        comparison = data_2024[['MainGroup', 'Sales', 'GrossMargin%', 'Stock', 'COGS']].rename(
+        comparison = data_2024[['MainGroup', 'Quantity', 'UnitPrice', 'Sales', 'GrossMargin%', 'Stock', 'COGS']].rename(
             columns={
+                'Quantity': 'Adet_2024',
+                'UnitPrice': 'BirimFiyat_2024',
                 'Sales': 'Satış_2024',
                 'GrossMargin%': 'BM%_2024',
                 'Stock': 'Stok_2024',
                 'COGS': 'SMM_2024'
             }
         )
-        
+
         comparison = comparison.merge(
-            data_2025[['MainGroup', 'Sales', 'GrossMargin%', 'Stock', 'COGS']].rename(
+            data_2025[['MainGroup', 'Quantity', 'UnitPrice', 'Sales', 'GrossMargin%', 'Stock', 'COGS']].rename(
                 columns={
+                    'Quantity': 'Adet_2025',
+                    'UnitPrice': 'BirimFiyat_2025',
                     'Sales': 'Satış_2025',
                     'GrossMargin%': 'BM%_2025',
                     'Stock': 'Stok_2025',
                     'COGS': 'SMM_2025'
                 }
             ),
+        
             on='MainGroup',
             how='outer'
         )
         
         comparison = comparison.merge(
-            data_2026[['MainGroup', 'Sales', 'GrossMargin%', 'Stock', 'COGS']].rename(
+            data_2026[['MainGroup', 'Quantity', 'UnitPrice', 'Sales', 'GrossMargin%', 'Stock', 'COGS']].rename(
                 columns={
+                    'Quantity': 'Adet_2026',
+                    'UnitPrice': 'BirimFiyat_2026',
                     'Sales': 'Satış_2026',
                     'GrossMargin%': 'BM%_2026',
                     'Stock': 'Stok_2026',
@@ -951,21 +1122,36 @@ with main_tabs[2]:
         
         display_df = comparison.copy()
         
+        # Adet formatla (tam sayı)
+        for col in ['Adet_2024', 'Adet_2025', 'Adet_2026']:
+            if col in display_df.columns:
+                display_df[col] = display_df[col].apply(lambda x: format_number(x, 0) if x > 0 else "-")
+        
+        # Birim fiyat formatla (2 ondalık)
+        for col in ['BirimFiyat_2024', 'BirimFiyat_2025', 'BirimFiyat_2026']:
+            if col in display_df.columns:
+                display_df[col] = display_df[col].apply(lambda x: f"₺{format_number(x, 2)}" if x > 0 else "-")
+        
+        # Para formatla
         for col in ['Satış_2024', 'Stok_2024', 'SMM_2024', 'Satış_2025', 'Stok_2025', 'SMM_2025', 
                     'Satış_2026', 'Stok_2026', 'SMM_2026']:
+                        
             if col in display_df.columns:
-                display_df[col] = display_df[col].apply(lambda x: f"₺{x:,.0f}" if x > 0 else "-")
+                display_df[col] = display_df[col].apply(lambda x: format_currency(x) if x > 0 else "-")
         
         for col in ['BM%_2024', 'BM%_2025', 'BM%_2026']:
             if col in display_df.columns:
-                display_df[col] = display_df[col].apply(lambda x: f"%{x*100:.1f}" if x > 0 else "-")
+                display_df[col] = display_df[col].apply(lambda x: format_percent(x*100, 1) if x > 0 else "-")
         
         for col in ['Stok/SMM_Haftalık_2024', 'Stok/SMM_Haftalık_2025', 'Stok/SMM_Haftalık_2026']:
             if col in display_df.columns:
                 display_df[col] = display_df[col].apply(lambda x: f"{x:.2f}" if x > 0 else "-")
         
+        
         display_df = display_df[[
             'MainGroup',
+            'Adet_2024', 'Adet_2025', 'Adet_2026',
+            'BirimFiyat_2024', 'BirimFiyat_2025', 'BirimFiyat_2026',
             'Satış_2024', 'Satış_2025', 'Satış_2026',
             'BM%_2024', 'BM%_2025', 'BM%_2026',
             'Stok_2024', 'Stok_2025', 'Stok_2026',
@@ -975,6 +1161,8 @@ with main_tabs[2]:
         
         display_df.columns = [
             'Ana Grup',
+            'Adet 2024', 'Adet 2025', 'Adet 2026',
+            'Birim Fiyat 2024', 'Birim Fiyat 2025', 'Birim Fiyat 2026',
             'Satış 2024', 'Satış 2025', 'Satış 2026',
             'BM% 2024', 'BM% 2025', 'BM% 2026',
             'Stok 2024', 'Stok 2025', 'Stok 2026',
@@ -982,6 +1170,7 @@ with main_tabs[2]:
             'Stok/SMM Hft. 2024', 'Stok/SMM Hft. 2025', 'Stok/SMM Hft. 2026'
         ]
         
+                
         st.info(f"📅 {selected_month}. Ay ({days} gün) - Stok/SMM haftalık: (Stok / (SMM/{days})*7)")
         
         st.dataframe(
@@ -991,9 +1180,39 @@ with main_tabs[2]:
             height=600
         )
         
+        # CSV için formatlı veri hazırla
+        csv_export = comparison.copy()
+        
+        # Adet formatla
+        for col in ['Adet_2024', 'Adet_2025', 'Adet_2026']:
+            if col in csv_export.columns:
+                csv_export[col] = csv_export[col].apply(lambda x: int(x) if x > 0 else 0)
+        
+        # Birim fiyat formatla (2 ondalık)
+        for col in ['BirimFiyat_2024', 'BirimFiyat_2025', 'BirimFiyat_2026']:
+            if col in csv_export.columns:
+                csv_export[col] = csv_export[col].round(2)
+        
+        # Para formatla (tam sayı)
+        for col in ['Satış_2024', 'Stok_2024', 'SMM_2024', 
+                    'Satış_2025', 'Stok_2025', 'SMM_2025', 
+                    'Satış_2026', 'Stok_2026', 'SMM_2026']:
+            if col in csv_export.columns:
+                csv_export[col] = csv_export[col].apply(lambda x: int(x) if x > 0 else 0)
+        
+        # Brüt marj yüzde formatına çevir (Excel için)
+        for col in ['BM%_2024', 'BM%_2025', 'BM%_2026']:
+            if col in csv_export.columns:
+                csv_export[col] = (csv_export[col] * 100).round(1)
+        
+        # Stok/SMM 2 ondalık
+        for col in ['Stok/SMM_Haftalık_2024', 'Stok/SMM_Haftalık_2025', 'Stok/SMM_Haftalık_2026']:
+            if col in csv_export.columns:
+                csv_export[col] = csv_export[col].round(2)
+        
         st.download_button(
             label="📥 CSV İndir (Sadece Bu Ay)",
-            data=comparison.to_csv(index=False).encode('utf-8'),
+            data=csv_export.to_csv(index=False, encoding='utf-8-sig', decimal=',', sep=';').encode('utf-8-sig'),
             file_name=f'budget_comparison_month_{selected_month}.csv',
             mime='text/csv'
         )
@@ -1013,9 +1232,11 @@ with main_tabs[2]:
                     month_data_2025 = full_data[(full_data['Year'] == 2025) & (full_data['Month'] == month)].copy()
                     month_data_2026 = full_data[(full_data['Year'] == 2026) & (full_data['Month'] == month)].copy()
                     
-                    # Birleştir
-                    month_comparison = month_data_2024[['MainGroup', 'Sales', 'GrossProfit', 'GrossMargin%', 'Stock', 'COGS']].rename(
+                    # 2024 verisi
+                    month_comparison = month_data_2024[['MainGroup', 'Quantity', 'UnitPrice', 'Sales', 'GrossProfit', 'GrossMargin%', 'Stock', 'COGS']].rename(
                         columns={
+                            'Quantity': 'Adet_2024',
+                            'UnitPrice': 'BirimFiyat_2024',
                             'Sales': 'Satis_2024',
                             'GrossProfit': 'BrutKar_2024',
                             'GrossMargin%': 'BrutMarj_2024',
@@ -1024,9 +1245,12 @@ with main_tabs[2]:
                         }
                     )
                     
+                    # 2025 verisi
                     month_comparison = month_comparison.merge(
-                        month_data_2025[['MainGroup', 'Sales', 'GrossProfit', 'GrossMargin%', 'Stock', 'COGS']].rename(
+                        month_data_2025[['MainGroup', 'Quantity', 'UnitPrice', 'Sales', 'GrossProfit', 'GrossMargin%', 'Stock', 'COGS']].rename(
                             columns={
+                                'Quantity': 'Adet_2025',
+                                'UnitPrice': 'BirimFiyat_2025',
                                 'Sales': 'Satis_2025',
                                 'GrossProfit': 'BrutKar_2025',
                                 'GrossMargin%': 'BrutMarj_2025',
@@ -1038,9 +1262,12 @@ with main_tabs[2]:
                         how='outer'
                     )
                     
+                    # 2026 verisi
                     month_comparison = month_comparison.merge(
-                        month_data_2026[['MainGroup', 'Sales', 'GrossProfit', 'GrossMargin%', 'Stock', 'COGS']].rename(
+                        month_data_2026[['MainGroup', 'Quantity', 'UnitPrice', 'Sales', 'GrossProfit', 'GrossMargin%', 'Stock', 'COGS']].rename(
                             columns={
+                                'Quantity': 'Adet_2026',
+                                'UnitPrice': 'BirimFiyat_2026',
                                 'Sales': 'Satis_2026',
                                 'GrossProfit': 'BrutKar_2026',
                                 'GrossMargin%': 'BrutMarj_2026',
@@ -1062,6 +1289,8 @@ with main_tabs[2]:
                 
                 # Sütun sırası düzenle
                 column_order = ['Ay', 'MainGroup',
+                               'Adet_2024', 'Adet_2025', 'Adet_2026',
+                               'BirimFiyat_2024', 'BirimFiyat_2025', 'BirimFiyat_2026',
                                'Satis_2024', 'Satis_2025', 'Satis_2026',
                                'BrutKar_2024', 'BrutKar_2025', 'BrutKar_2026',
                                'BrutMarj_2024', 'BrutMarj_2025', 'BrutMarj_2026',
@@ -1070,14 +1299,28 @@ with main_tabs[2]:
                 
                 full_comparison = full_comparison[column_order]
                 
-                # BrutMarj sütunlarını yüzde formatından ondalık sayıya çevir (Excel için)
-                for col in ['BrutMarj_2024', 'BrutMarj_2025', 'BrutMarj_2026']:
-                    # 0.42 gibi değerleri 42 yap (Excel'de yüzde formatı uygularız)
-                    full_comparison[col] = full_comparison[col] * 100
+                # FORMATLAMA
+                # Adet - tam sayı
+                for col in ['Adet_2024', 'Adet_2025', 'Adet_2026']:
+                    full_comparison[col] = full_comparison[col].apply(lambda x: int(x) if x > 0 else 0)
                 
-                # CSV'ye çevir - FORMATLAMADAN, ham sayılar
-                # Excel kendi yorumlayacak
-                csv_data = full_comparison.to_csv(index=False, encoding='utf-8-sig', sep=',', decimal='.')
+                # Birim fiyat - 2 ondalık
+                for col in ['BirimFiyat_2024', 'BirimFiyat_2025', 'BirimFiyat_2026']:
+                    full_comparison[col] = full_comparison[col].round(2)
+                
+                # Para - tam sayı
+                for col in ['Satis_2024', 'Satis_2025', 'Satis_2026',
+                           'BrutKar_2024', 'BrutKar_2025', 'BrutKar_2026',
+                           'Stok_2024', 'Stok_2025', 'Stok_2026',
+                           'SMM_2024', 'SMM_2025', 'SMM_2026']:
+                    full_comparison[col] = full_comparison[col].apply(lambda x: int(x) if x > 0 else 0)
+                
+                # BrutMarj yüzde formatı (Excel için)
+                for col in ['BrutMarj_2024', 'BrutMarj_2025', 'BrutMarj_2026']:
+                    full_comparison[col] = (full_comparison[col] * 100).round(1)
+                
+                # CSV'ye çevir - Türkiye formatı
+                csv_data = full_comparison.to_csv(index=False, encoding='utf-8-sig', sep=';', decimal=',')
                 
                 st.download_button(
                     label="📥 Toplu CSV İndir (Tüm Aylar ve Gruplar)",
@@ -1088,7 +1331,7 @@ with main_tabs[2]:
                 )
                 
                 st.success(f"✅ CSV hazır! Toplam {len(full_comparison)} satır veri")
-                st.info("💡 Excel'de açınca sayılar otomatik formatlanacak. BrutMarj sütunlarına yüzde (%) formatı uygulayın.")
+                st.info("💡 Excel'de açınca BrutMarj sütunlarına yüzde (%) formatı uygulayın.")
 
 # Footer
 st.markdown("---")
